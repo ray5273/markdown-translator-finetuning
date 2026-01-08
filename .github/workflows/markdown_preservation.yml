@@ -28,6 +28,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m venv .venv
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
@@ -35,6 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .venv/bin/activate
           output_dir="outputs/markdown_preservation"
           mkdir -p "$output_dir"
           while IFS= read -r file; do
