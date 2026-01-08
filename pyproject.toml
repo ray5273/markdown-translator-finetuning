@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "markdown-translator-finetuning"
 version = "0.1.0"
-description = "EXAONE 3.5-7.8B finetuning for Korean to English markdown translation"
+description = "Fine-tuning framework for Korean to English markdown translation with any HuggingFace model"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
     {name = "Your Name", email = "your@email.com"}
 ]
-keywords = ["llm", "finetuning", "translation", "markdown", "exaone"]
+keywords = ["llm", "finetuning", "translation", "markdown", "lora", "qlora"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

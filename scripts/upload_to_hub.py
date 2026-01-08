@@ -45,22 +45,28 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Basic upload
+    # Basic upload (base_model will be read from training_info.json if available)
     python scripts/upload_to_hub.py \\
         --adapter-path outputs/checkpoints/final/adapter \\
-        --repo-id your-username/exaone-markdown-translator
+        --repo-id your-username/markdown-translator
 
-    # Upload merged model
+    # Upload with explicit base model
     python scripts/upload_to_hub.py \\
         --adapter-path outputs/checkpoints/final/adapter \\
-        --repo-id your-username/exaone-markdown-translator-merged \\
+        --repo-id your-username/markdown-translator \\
+        --base-model meta-llama/Llama-3.1-8B-Instruct
+
+    # Upload merged model (requires --base-model)
+    python scripts/upload_to_hub.py \\
+        --adapter-path outputs/checkpoints/final/adapter \\
+        --repo-id your-username/markdown-translator-merged \\
+        --base-model meta-llama/Llama-3.1-8B-Instruct \\
         --merge
 
     # Private repository with custom config
     python scripts/upload_to_hub.py \\
         --adapter-path outputs/checkpoints/final/adapter \\
         --repo-id your-org/internal-translator \\
-        --config configs/hub_config.yaml \\
         --private
 
 Environment Variables:
@@ -105,10 +111,11 @@ Environment Variables:
         help="Merge adapter into base model before upload (creates standalone model)"
     )
     parser.add_argument(
-        "--base-model",
+        "--base-model", "-m",
         type=str,
-        default="LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
-        help="Base model name (required for --merge)"
+        default=None,
+        help="Base model HuggingFace ID (required for --merge and model card). "
+             "Examples: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct"
     )
     parser.add_argument(
         "--commit-message",
@@ -223,10 +230,28 @@ def main():
                 print(f"Found training info: {p}")
                 break
 
+    # base_model 결정 (CLI 인자 > training_info > config)
+    base_model = args.base_model
+    if not base_model and training_info:
+        base_model = training_info.get('base_model')
+    if not base_model and config:
+        base_model = config.get('model_card', {}).get('base_model')
+
+    # --merge 사용시 base_model 필수
+    if args.merge and not base_model:
+        print("\n" + "=" * 70)
+        print("  ERROR: Base model not specified for merge  ".center(70, "!"))
+        print("=" * 70)
+        print("\nWhen using --merge, you must specify the base model:")
+        print("  python scripts/upload_to_hub.py --base-model 'meta-llama/Llama-3.1-8B-Instruct' --merge ...")
+        print("=" * 70 + "\n")
+        sys.exit(1)
+
     # 업로드 실행
     print(f"\n{'=' * 60}")
     print(f"Uploading to: {repo_id}")
     print(f"Adapter path: {adapter_path}")
+    print(f"Base model: {base_model or 'Not specified'}")
     print(f"Mode: {'Merged model' if args.merge else 'LoRA adapter only'}")
     print(f"Private: {args.private}")
     print(f"{'=' * 60}\n")
@@ -235,7 +260,7 @@ def main():
         if args.merge:
             # 병합된 모델 업로드
             repo_url = uploader.upload_merged_model(
-                base_model_name=args.base_model,
+                base_model_name=base_model,
                 adapter_path=str(adapter_path),
                 repo_id=repo_id,
                 private=args.private,
@@ -258,14 +283,15 @@ def main():
         print(f"{'=' * 60}")
         print(f"\nYour model is available at:")
         print(f"  {repo_url}")
-        print(f"\nTo use this model:")
-        print(f"""
+        if base_model:
+            print(f"\nTo use this model:")
+            print(f"""
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 # Load base model
 model = AutoModelForCausalLM.from_pretrained(
-    "{args.base_model}",
+    "{base_model}",
     torch_dtype=torch.bfloat16,
     device_map="auto",
     trust_remote_code=True

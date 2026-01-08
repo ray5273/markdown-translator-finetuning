@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""EXAONE 3.5-7.8B 마크다운 번역 파인튜닝 학습 스크립트
+"""마크다운 번역 파인튜닝 학습 스크립트
 
 Usage:
-    python scripts/train.py --config configs/training_config.yaml
-    python scripts/train.py --config configs/training_config.yaml --qlora
+    python scripts/train.py --model "meta-llama/Llama-3.1-8B-Instruct"
+    python scripts/train.py --model "Qwen/Qwen2.5-7B-Instruct" --qlora
+    python scripts/train.py --config configs/training_config.yaml --yes  # skip confirmation
 """
 
 import os
@@ -40,8 +41,15 @@ load_dotenv()
 
 def parse_args():
     """명령행 인자 파싱"""
-    parser = argparse.ArgumentParser(description="Train EXAONE markdown translator")
+    parser = argparse.ArgumentParser(description="Train markdown translator model with LoRA/QLoRA")
 
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=None,
+        help="HuggingFace model ID to fine-tune (overrides config file). "
+             "Examples: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct"
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -89,6 +97,12 @@ def parse_args():
         help="Disable WandB logging"
     )
 
+    parser.add_argument(
+        "-y", "--yes",
+        action="store_true",
+        help="Skip confirmation prompt and start training immediately"
+    )
+
     # Hub upload options
     parser.add_argument(
         "--push-to-hub",
@@ -122,6 +136,104 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def print_config_summary(config: dict, lora_config: dict, args) -> None:
+    """학습 설정 요약 출력"""
+    model_config = config.get('model', {})
+    train_config = config.get('training', {})
+    data_config = config.get('data', {})
+    wandb_config = config.get('wandb', {})
+    lora_params = lora_config.get('lora', {})
+
+    # 박스 그리기 유틸
+    width = 70
+
+    print("\n" + "=" * width)
+    print("  TRAINING CONFIGURATION SUMMARY  ".center(width, "="))
+    print("=" * width)
+
+    # 모델 설정
+    print("\n📦 MODEL CONFIGURATION")
+    print("-" * width)
+    print(f"  Model Name       : {model_config.get('name', 'N/A')}")
+    print(f"  Max Length       : {model_config.get('max_length', 'N/A')}")
+    print(f"  Trust Remote Code: {model_config.get('trust_remote_code', False)}")
+
+    # LoRA/QLoRA 설정
+    print(f"\n🔧 {'QLoRA' if args.qlora else 'LoRA'} CONFIGURATION")
+    print("-" * width)
+    print(f"  Rank (r)         : {lora_params.get('r', 'N/A')}")
+    print(f"  Alpha            : {lora_params.get('lora_alpha', 'N/A')}")
+    print(f"  Dropout          : {lora_params.get('lora_dropout', 'N/A')}")
+    print(f"  Target Modules   : {', '.join(lora_params.get('target_modules', []))}")
+    if args.qlora:
+        quant_config = lora_config.get('quantization', {})
+        print(f"  Quantization     : {quant_config.get('load_in_4bit', False) and '4-bit' or '8-bit'}")
+        print(f"  Quant Type       : {quant_config.get('bnb_4bit_quant_type', 'N/A')}")
+
+    # 학습 설정
+    print(f"\n🎯 TRAINING CONFIGURATION")
+    print("-" * width)
+    print(f"  Output Dir       : {train_config.get('output_dir', 'N/A')}")
+    print(f"  Epochs           : {train_config.get('num_train_epochs', 'N/A')}")
+    print(f"  Batch Size       : {train_config.get('per_device_train_batch_size', 'N/A')}")
+    print(f"  Gradient Accum   : {train_config.get('gradient_accumulation_steps', 'N/A')}")
+    effective_batch = train_config.get('per_device_train_batch_size', 1) * train_config.get('gradient_accumulation_steps', 1)
+    print(f"  Effective Batch  : {effective_batch}")
+    print(f"  Learning Rate    : {train_config.get('learning_rate', 'N/A')}")
+    print(f"  LR Scheduler     : {train_config.get('lr_scheduler_type', 'N/A')}")
+    print(f"  Warmup Ratio     : {train_config.get('warmup_ratio', 'N/A')}")
+    print(f"  Optimizer        : {train_config.get('optim', 'N/A')}")
+    print(f"  BF16             : {train_config.get('bf16', False)}")
+    print(f"  Gradient Ckpt    : {train_config.get('gradient_checkpointing', False)}")
+
+    # 데이터 설정
+    print(f"\n📊 DATA CONFIGURATION")
+    print("-" * width)
+    print(f"  Train File       : {data_config.get('train_file', 'N/A')}")
+    print(f"  Valid File       : {data_config.get('valid_file', 'N/A')}")
+    print(f"  Use Masking      : {args.use_masking}")
+
+    # WandB 설정
+    print(f"\n📈 LOGGING CONFIGURATION")
+    print("-" * width)
+    if args.no_wandb:
+        print(f"  WandB            : Disabled")
+    else:
+        print(f"  WandB Project    : {args.wandb_project or wandb_config.get('project', 'markdown-translator')}")
+        print(f"  WandB Entity     : {wandb_config.get('entity', 'N/A')}")
+    print(f"  Logging Steps    : {train_config.get('logging_steps', 'N/A')}")
+    print(f"  Save Strategy    : {train_config.get('save_strategy', 'N/A')}")
+    print(f"  Save Steps       : {train_config.get('save_steps', 'N/A')}")
+
+    # Hub 업로드 설정
+    if args.push_to_hub:
+        print(f"\n☁️  HUB UPLOAD CONFIGURATION")
+        print("-" * width)
+        print(f"  Repository ID    : {args.hub_repo_id or 'Not specified'}")
+        print(f"  Private          : {args.hub_private}")
+
+    # Resume 설정
+    if args.resume_from:
+        print(f"\n🔄 RESUME CONFIGURATION")
+        print("-" * width)
+        print(f"  Checkpoint       : {args.resume_from}")
+
+    print("\n" + "=" * width)
+
+
+def confirm_training() -> bool:
+    """사용자에게 학습 시작 확인을 받음"""
+    print("\n❓ Do you want to start training with the above configuration?")
+    while True:
+        response = input("   Continue? [Y/n]: ").strip().lower()
+        if response in ['', 'y', 'yes']:
+            return True
+        elif response in ['n', 'no']:
+            return False
+        else:
+            print("   Please enter 'y' (yes) or 'n' (no)")
+
+
 def setup_wandb(config: dict, args):
     """WandB 설정"""
     if args.no_wandb:
@@ -132,7 +244,7 @@ def setup_wandb(config: dict, args):
         import wandb
 
         wandb_config = config.get('wandb', {})
-        project = args.wandb_project or wandb_config.get('project', 'exaone-markdown-translator')
+        project = args.wandb_project or wandb_config.get('project', 'markdown-translator')
 
         wandb.init(
             project=project,
@@ -156,11 +268,46 @@ def main():
 
     # LoRA/QLoRA 설정 선택
     if args.qlora:
-        print("Using QLoRA (4-bit quantization)")
         lora_config_path = args.qlora_config
     else:
-        print("Using LoRA (16-bit)")
         lora_config_path = args.lora_config
+
+    # LoRA 설정 로드
+    lora_config = load_config(lora_config_path)
+
+    # 모델 이름 결정 (CLI 인자 우선)
+    model_name = args.model or config.get('model', {}).get('name')
+    if not model_name:
+        print("\n" + "=" * 70)
+        print("  ERROR: Model not specified  ".center(70, "!"))
+        print("=" * 70)
+        print("\nPlease specify a model using one of these methods:")
+        print("\n  1. Command line argument:")
+        print("     python scripts/train.py --model 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\n  2. Config file (configs/training_config.yaml):")
+        print("     model:")
+        print("       name: 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\nSupported models (examples):")
+        print("  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct")
+        print("  - meta-llama/Llama-3.1-8B-Instruct")
+        print("  - Qwen/Qwen2.5-7B-Instruct")
+        print("  - mistralai/Mistral-7B-Instruct-v0.3")
+        print("=" * 70 + "\n")
+        sys.exit(1)
+
+    # CLI에서 모델을 지정한 경우 config에도 반영
+    config['model']['name'] = model_name
+
+    # Configuration 요약 출력
+    print_config_summary(config, lora_config, args)
+
+    # 사용자 확인 (--yes 옵션이 없는 경우)
+    if not args.yes:
+        if not confirm_training():
+            print("\n🚫 Training cancelled by user.")
+            sys.exit(0)
+
+    print("\n✅ Configuration confirmed. Starting training...\n")
 
     # WandB 설정
     setup_wandb(config, args)
@@ -170,7 +317,6 @@ def main():
     loader = ModelLoader(config_path=lora_config_path)
 
     # 모델 및 토크나이저 로드
-    model_name = config['model']['name']
     print(f"Loading model: {model_name}")
 
     model, tokenizer = loader.load_model_and_tokenizer(
@@ -235,7 +381,7 @@ def main():
         dataloader_num_workers=train_config.get('dataloader_num_workers', 4),
         dataloader_pin_memory=True,
         report_to="none" if args.no_wandb else train_config.get('report_to', 'wandb'),
-        run_name=train_config.get('run_name', 'exaone-markdown-translator'),
+        run_name=train_config.get('run_name', 'markdown-translator'),
     )
 
     # 콜백 설정

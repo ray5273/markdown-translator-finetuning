@@ -1,9 +1,15 @@
-# EXAONE 3.5 Markdown Translator
+# Markdown Translator Fine-tuning
 
-EXAONE 3.5-7.8B 모델을 파인튜닝하여 한국어 마크다운 문서를 영어로 번역하는 프로젝트입니다.
+한국어 마크다운 문서를 영어로 번역하기 위한 LLM 파인튜닝 프레임워크입니다.
 
 ## Features
 
+- **모델 선택 자유**: 어떤 HuggingFace 모델이든 파인튜닝 가능
+  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct
+  - meta-llama/Llama-3.1-8B-Instruct
+  - Qwen/Qwen2.5-7B-Instruct
+  - mistralai/Mistral-7B-Instruct-v0.3
+  - 그 외 모든 CausalLM 모델
 - **마크다운 구조 보존**: 코드 블록, 링크, 테이블 등 마크다운 요소를 보존하며 번역
 - **QLoRA 지원**: 4-bit 양자화로 RTX 3090/4080에서도 학습 가능
 - **다양한 평가 메트릭**: BLEU, chrF, COMET + 마크다운 보존율 평가
@@ -71,30 +77,42 @@ python -m pip install -r requirements.txt
 ### 2. 학습
 
 ```bash
-# QLoRA로 학습 (12-16GB VRAM)
-python scripts/train.py --config configs/training_config.yaml --qlora
+# 모델 지정 + QLoRA로 학습 (12-16GB VRAM)
+python scripts/train.py --model "meta-llama/Llama-3.1-8B-Instruct" --qlora
+
+# 다른 모델로 학습
+python scripts/train.py --model "Qwen/Qwen2.5-7B-Instruct" --qlora
 
 # LoRA로 학습 (24GB+ VRAM)
+python scripts/train.py --model "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+
+# 설정 파일 사용 (config에서 model.name 지정)
 python scripts/train.py --config configs/training_config.yaml
 ```
 
 ### 3. 평가
 
 ```bash
-python scripts/evaluate.py --adapter-path outputs/checkpoints/final/adapter
+python scripts/evaluate.py --base-model "meta-llama/Llama-3.1-8B-Instruct" \
+    --adapter-path outputs/checkpoints/final/adapter
 ```
 
 ### 4. 추론
 
 ```bash
 # 단일 파일 번역
-python scripts/inference.py --input docs/README.ko.md --output docs/README.en.md
+python scripts/inference.py -m "meta-llama/Llama-3.1-8B-Instruct" \
+    --adapter-path outputs/checkpoints/final/adapter \
+    --input docs/README.ko.md --output docs/README.en.md
 
 # 대화형 모드
-python scripts/inference.py --interactive
+python scripts/inference.py -m "meta-llama/Llama-3.1-8B-Instruct" \
+    --adapter-path outputs/checkpoints/final/adapter --interactive
 
 # 디렉토리 일괄 번역
-python scripts/inference.py --input-dir docs/ko --output-dir docs/en
+python scripts/inference.py -m "meta-llama/Llama-3.1-8B-Instruct" \
+    --adapter-path outputs/checkpoints/final/adapter \
+    --input-dir docs/ko --output-dir docs/en
 ```
 
 ### 5. Hugging Face Hub 업로드
@@ -115,12 +133,12 @@ export HF_TOKEN=hf_xxxxxxxxxxxxx
 
 ```bash
 # 학습 완료 시 자동으로 Hub에 업로드
-python scripts/train.py --config configs/training_config.yaml --qlora \
+python scripts/train.py --model "meta-llama/Llama-3.1-8B-Instruct" --qlora \
     --push-to-hub \
-    --hub-repo-id your-username/exaone-markdown-translator
+    --hub-repo-id your-username/markdown-translator
 
 # 비공개 리포지토리로 업로드
-python scripts/train.py --config configs/training_config.yaml --qlora \
+python scripts/train.py --model "Qwen/Qwen2.5-7B-Instruct" --qlora \
     --push-to-hub \
     --hub-repo-id your-org/internal-model \
     --hub-private
@@ -130,21 +148,22 @@ python scripts/train.py --config configs/training_config.yaml --qlora \
 
 ```bash
 # 어댑터만 업로드 (용량 작음, 추천)
+# base_model은 training_info.json에서 자동으로 읽음
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
-    --repo-id your-username/exaone-markdown-translator
+    --repo-id your-username/markdown-translator
 
-# 병합된 전체 모델 업로드 (단독 사용 가능)
+# 병합된 전체 모델 업로드 (단독 사용 가능, --base-model 필수)
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
-    --repo-id your-username/exaone-markdown-translator-merged \
+    --repo-id your-username/markdown-translator-merged \
+    --base-model meta-llama/Llama-3.1-8B-Instruct \
     --merge
 
 # 비공개 + 커스텀 설정
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
     --repo-id your-username/my-translator \
-    --config configs/hub_config.yaml \
     --private
 ```
 
@@ -155,9 +174,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-# 기본 모델 로드
+# 기본 모델 로드 (학습에 사용한 모델과 동일해야 함)
 base_model = AutoModelForCausalLM.from_pretrained(
-    "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",  # 학습에 사용한 모델
     torch_dtype=torch.bfloat16,
     device_map="auto",
     trust_remote_code=True
@@ -166,10 +185,10 @@ base_model = AutoModelForCausalLM.from_pretrained(
 # LoRA 어댑터 로드
 model = PeftModel.from_pretrained(
     base_model,
-    "your-username/exaone-markdown-translator"
+    "your-username/markdown-translator"
 )
 tokenizer = AutoTokenizer.from_pretrained(
-    "your-username/exaone-markdown-translator"
+    "your-username/markdown-translator"
 )
 ```
 
@@ -222,7 +241,8 @@ MIT License
 
 ## References
 
-- [EXAONE 3.5](https://github.com/LG-AI-EXAONE/EXAONE-3.5)
+- [Hugging Face Transformers](https://huggingface.co/docs/transformers)
 - [Hugging Face PEFT](https://huggingface.co/docs/peft)
+- [QLoRA Paper](https://arxiv.org/abs/2305.14314)
 - [SacreBLEU](https://github.com/mjpost/sacrebleu)
 - [COMET](https://github.com/Unbabel/COMET)

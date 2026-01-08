@@ -3,16 +3,16 @@
 
 Usage:
     # 단일 파일 번역
-    python scripts/inference.py --input input.md --output output.md
+    python scripts/inference.py -m "meta-llama/Llama-3.1-8B-Instruct" --input input.md --output output.md
 
     # 텍스트 직접 입력
-    python scripts/inference.py --text "# 안녕하세요\n\n이것은 테스트입니다."
+    python scripts/inference.py -m "Qwen/Qwen2.5-7B-Instruct" --text "# 안녕하세요"
 
     # 디렉토리 번역
-    python scripts/inference.py --input-dir docs/ko --output-dir docs/en
+    python scripts/inference.py --base-model "..." --input-dir docs/ko --output-dir docs/en
 
     # 대화형 모드
-    python scripts/inference.py --interactive
+    python scripts/inference.py --base-model "..." --interactive
 """
 
 import os
@@ -37,6 +37,13 @@ def parse_args():
     """명령행 인자 파싱"""
     parser = argparse.ArgumentParser(description="Translate Korean markdown to English")
 
+    parser.add_argument(
+        "--base-model", "-m",
+        type=str,
+        default=None,
+        help="Base model HuggingFace ID (overrides config file). "
+             "Examples: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct"
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -159,10 +166,28 @@ def main():
         with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
 
-    # 모델 경로 설정
+    # 모델 경로 설정 (CLI 인자 우선)
     model_config = config.get('model', {})
-    base_model = model_config.get('base_model', 'LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct')
+    base_model = args.base_model or model_config.get('base_model')
     adapter_path = args.adapter_path or model_config.get('adapter_path')
+
+    # 모델 미지정시 에러
+    if not base_model:
+        print("\n" + "=" * 70)
+        print("  ERROR: Base model not specified  ".center(70, "!"))
+        print("=" * 70)
+        print("\nPlease specify a model using one of these methods:")
+        print("\n  1. Command line argument:")
+        print("     python scripts/inference.py --base-model 'meta-llama/Llama-3.1-8B-Instruct' ...")
+        print("\n  2. Config file (configs/inference_config.yaml):")
+        print("     model:")
+        print("       base_model: 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\nSupported models (examples):")
+        print("  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct")
+        print("  - meta-llama/Llama-3.1-8B-Instruct")
+        print("  - Qwen/Qwen2.5-7B-Instruct")
+        print("=" * 70 + "\n")
+        sys.exit(1)
 
     # 파이프라인 초기화
     print(f"Loading model: {base_model}")

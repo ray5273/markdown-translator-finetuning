@@ -2,8 +2,8 @@
 """모델 평가 스크립트
 
 Usage:
-    python scripts/evaluate.py --adapter-path outputs/checkpoints/final/adapter
-    python scripts/evaluate.py --config configs/inference_config.yaml
+    python scripts/evaluate.py --base-model "meta-llama/Llama-3.1-8B-Instruct" --adapter-path outputs/checkpoints/final/adapter
+    python scripts/evaluate.py -m "Qwen/Qwen2.5-7B-Instruct" --adapter-path outputs/checkpoints/final/adapter
 """
 
 import os
@@ -31,6 +31,13 @@ def parse_args():
     """명령행 인자 파싱"""
     parser = argparse.ArgumentParser(description="Evaluate translation model")
 
+    parser.add_argument(
+        "--base-model", "-m",
+        type=str,
+        default=None,
+        help="Base model HuggingFace ID (overrides config file). "
+             "Examples: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct"
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -114,15 +121,35 @@ def main():
     args = parse_args()
 
     # 설정 로드
-    print(f"Loading config from {args.config}")
-    with open(args.config, 'r') as f:
-        config = yaml.safe_load(f)
+    config = {}
+    if Path(args.config).exists():
+        print(f"Loading config from {args.config}")
+        with open(args.config, 'r') as f:
+            config = yaml.safe_load(f)
 
-    # 경로 설정
+    # 경로 설정 (CLI 인자 우선)
     model_config = config.get('model', {})
-    base_model = model_config.get('base_model', 'LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct')
+    base_model = args.base_model or model_config.get('base_model')
     adapter_path = args.adapter_path or model_config.get('adapter_path')
     test_file = args.test_file or config.get('evaluation', {}).get('test_file', 'data/processed/test.jsonl')
+
+    # 모델 미지정시 에러
+    if not base_model:
+        print("\n" + "=" * 70)
+        print("  ERROR: Base model not specified  ".center(70, "!"))
+        print("=" * 70)
+        print("\nPlease specify a model using one of these methods:")
+        print("\n  1. Command line argument:")
+        print("     python scripts/evaluate.py --base-model 'meta-llama/Llama-3.1-8B-Instruct' ...")
+        print("\n  2. Config file (configs/inference_config.yaml):")
+        print("     model:")
+        print("       base_model: 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\nSupported models (examples):")
+        print("  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct")
+        print("  - meta-llama/Llama-3.1-8B-Instruct")
+        print("  - Qwen/Qwen2.5-7B-Instruct")
+        print("=" * 70 + "\n")
+        sys.exit(1)
 
     # 출력 디렉토리 생성
     output_dir = Path(args.output_dir)

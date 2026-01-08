@@ -60,7 +60,7 @@ Your translation guidelines:
 
     def __init__(
         self,
-        base_model_path: str = "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+        base_model_path: str,
         adapter_path: Optional[str] = None,
         config_path: Optional[str] = None,
         device_map: str = "auto",
@@ -70,14 +70,26 @@ Your translation guidelines:
     ):
         """
         Args:
-            base_model_path: 기본 모델 경로
+            base_model_path: 기본 모델 경로 (필수)
             adapter_path: LoRA 어댑터 경로 (None이면 기본 모델만 사용)
             config_path: 설정 파일 경로
             device_map: 디바이스 맵
             torch_dtype: 데이터 타입
             merge_adapter: 어댑터 병합 여부 (추론 최적화)
             use_flash_attention: Flash Attention 사용 여부
+
+        Raises:
+            ValueError: base_model_path가 지정되지 않은 경우
         """
+        if not base_model_path:
+            raise ValueError(
+                "base_model_path is required. Please specify a HuggingFace model ID.\n"
+                "Examples:\n"
+                "  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct\n"
+                "  - meta-llama/Llama-3.1-8B-Instruct\n"
+                "  - Qwen/Qwen2.5-7B-Instruct"
+            )
+
         self.config = self._load_config(config_path)
         self.gen_config = self._get_generation_config()
 

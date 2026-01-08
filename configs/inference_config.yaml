@@ -1,8 +1,13 @@
-# Inference Configuration for EXAONE 3.5-7.8B Markdown Translator
+# Inference Configuration for Markdown Translator
 
 # Model paths
 model:
-  base_model: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  # REQUIRED: Specify the base model used for fine-tuning
+  # Examples:
+  #   - "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  #   - "meta-llama/Llama-3.1-8B-Instruct"
+  #   - "Qwen/Qwen2.5-7B-Instruct"
+  base_model: null  # <-- SET YOUR MODEL HERE
   adapter_path: "outputs/checkpoints/final"  # LoRA adapter path
   merged_model_path: null                     # Optional: path to merged model
 

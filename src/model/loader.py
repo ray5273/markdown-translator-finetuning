@@ -1,6 +1,6 @@
 """모델 로딩 모듈
 
-EXAONE 3.5-7.8B 모델을 로드하고 LoRA/QLoRA를 적용합니다.
+HuggingFace 모델을 로드하고 LoRA/QLoRA를 적용합니다.
 """
 
 import torch
@@ -27,12 +27,15 @@ from peft import (
 
 
 class ModelLoader:
-    """EXAONE 모델 로더
+    """모델 로더
 
-    LoRA/QLoRA 설정을 적용하여 모델을 로드합니다.
+    LoRA/QLoRA 설정을 적용하여 HuggingFace 모델을 로드합니다.
+    지원 모델 예시:
+    - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct
+    - meta-llama/Llama-3.1-8B-Instruct
+    - Qwen/Qwen2.5-7B-Instruct
+    - mistralai/Mistral-7B-Instruct-v0.3
     """
-
-    DEFAULT_MODEL_NAME = "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
 
     def __init__(
         self,
@@ -121,17 +124,27 @@ class ModelLoader:
 
     def load_tokenizer(
         self,
-        model_name: str = None
+        model_name: str
     ) -> AutoTokenizer:
         """토크나이저 로드
 
         Args:
-            model_name: 모델 이름/경로
+            model_name: 모델 이름/경로 (필수)
 
         Returns:
             토크나이저
+
+        Raises:
+            ValueError: model_name이 지정되지 않은 경우
         """
-        model_name = model_name or self.DEFAULT_MODEL_NAME
+        if not model_name:
+            raise ValueError(
+                "model_name is required. Please specify a HuggingFace model ID.\n"
+                "Examples:\n"
+                "  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct\n"
+                "  - meta-llama/Llama-3.1-8B-Instruct\n"
+                "  - Qwen/Qwen2.5-7B-Instruct"
+            )
 
         tokenizer = AutoTokenizer.from_pretrained(
             model_name,
@@ -148,19 +161,29 @@ class ModelLoader:
 
     def load_model(
         self,
-        model_name: str = None,
+        model_name: str,
         use_quantization: bool = True
     ) -> AutoModelForCausalLM:
         """모델 로드
 
         Args:
-            model_name: 모델 이름/경로
+            model_name: 모델 이름/경로 (필수)
             use_quantization: 양자화 사용 여부
 
         Returns:
             모델
+
+        Raises:
+            ValueError: model_name이 지정되지 않은 경우
         """
-        model_name = model_name or self.DEFAULT_MODEL_NAME
+        if not model_name:
+            raise ValueError(
+                "model_name is required. Please specify a HuggingFace model ID.\n"
+                "Examples:\n"
+                "  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct\n"
+                "  - meta-llama/Llama-3.1-8B-Instruct\n"
+                "  - Qwen/Qwen2.5-7B-Instruct"
+            )
         model_config = self.config.get('model', {})
 
         # 양자화 설정
@@ -241,21 +264,33 @@ class ModelLoader:
 
     def load_model_and_tokenizer(
         self,
-        model_name: str = None,
+        model_name: str,
         use_quantization: bool = True,
         apply_lora: bool = True
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """모델과 토크나이저를 함께 로드
 
         Args:
-            model_name: 모델 이름/경로
+            model_name: 모델 이름/경로 (필수)
             use_quantization: 양자화 사용 여부
             apply_lora: LoRA 적용 여부
 
         Returns:
             (모델, 토크나이저) 튜플
+
+        Raises:
+            ValueError: model_name이 지정되지 않은 경우
         """
-        print(f"Loading tokenizer from {model_name or self.DEFAULT_MODEL_NAME}...")
+        if not model_name:
+            raise ValueError(
+                "model_name is required. Please specify a HuggingFace model ID.\n"
+                "Examples:\n"
+                "  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct\n"
+                "  - meta-llama/Llama-3.1-8B-Instruct\n"
+                "  - Qwen/Qwen2.5-7B-Instruct"
+            )
+
+        print(f"Loading tokenizer from {model_name}...")
         tokenizer = self.load_tokenizer(model_name)
 
         print(f"Loading model...")

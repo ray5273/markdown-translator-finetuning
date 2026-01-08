@@ -11,7 +11,7 @@ hub:
   private: false
 
   # Commit message for the upload
-  commit_message: "Upload fine-tuned EXAONE markdown translator model"
+  commit_message: "Upload fine-tuned markdown translator model"
 
   # Branch to upload to (default: main)
   branch: "main"
@@ -37,27 +37,25 @@ model_card:
     - markdown
     - lora
     - peft
-    - exaone
 
   # Pipeline tag for Hugging Face Inference API
   pipeline_tag: "text-generation"
 
-  # Base model reference
-  base_model: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  # Base model reference (will be set automatically from training config or CLI)
+  base_model: null
 
   # Dataset used for training (optional)
   datasets: []
 
   # Model description (supports markdown)
+  # Note: {base_model} will be replaced with actual base model name during upload
   description: |
-    # EXAONE 3.5 Markdown Translator
+    # Markdown Translator
 
-    This is a fine-tuned version of [LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct](https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct)
-    for Korean to English markdown document translation.
+    This is a fine-tuned model for Korean to English markdown document translation.
 
     ## Model Description
 
-    - **Base Model**: EXAONE 3.5-7.8B-Instruct
     - **Fine-tuning Method**: LoRA/QLoRA
     - **Task**: Korean to English Translation
     - **Special Feature**: Preserves markdown structure during translation
@@ -76,7 +74,7 @@ model_card:
 
     # Load base model
     base_model = AutoModelForCausalLM.from_pretrained(
-        "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+        "YOUR_BASE_MODEL",
         torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True
