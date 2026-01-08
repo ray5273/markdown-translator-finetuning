@@ -75,7 +75,7 @@ class ModelLoader:
                 'use_rslora': True
             },
             'model': {
-                'use_flash_attention': True,
+                'use_flash_attention': False,
                 'device_map': 'auto'
             }
         }
@@ -168,8 +168,16 @@ class ModelLoader:
 
         # Attention 구현 선택
         attn_implementation = None
-        if model_config.get('use_flash_attention', True):
-            attn_implementation = "flash_attention_2"
+        if model_config.get('use_flash_attention', False):
+            try:
+                import flash_attn
+                attn_implementation = "flash_attention_2"
+                print("Using FlashAttention2")
+            except ImportError:
+                print("FlashAttention2 not available, using default attention implementation")
+                attn_implementation = "eager"
+        else:
+            attn_implementation = "eager"
 
         # 모델 로드
         model = AutoModelForCausalLM.from_pretrained(
