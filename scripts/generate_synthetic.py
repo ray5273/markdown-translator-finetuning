@@ -288,7 +288,7 @@ If the problem persists, please report it on the [issue tracker](https://github.
 
 ## 전제 조건
 
-- Python 3.10 이상
+- Python 3.11 이상
 - pip 또는 conda
 
 ## 설치
@@ -331,7 +331,7 @@ MY_DEBUG=true
 
 ## Prerequisites
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - pip or conda
 
 ## Installation
