@@ -34,17 +34,19 @@ python -m pip install -r requirements.txt
 │   ├── qlora_config.yaml   # QLoRA 설정
 │   ├── lora_config.yaml    # LoRA 설정
 │   ├── training_config.yaml # 학습 설정
-│   └── inference_config.yaml # 추론 설정
+│   ├── inference_config.yaml # 추론 설정
+│   └── hub_config.yaml     # Hugging Face Hub 업로드 설정
 ├── src/
 │   ├── data/               # 데이터 처리
-│   ├── model/              # 모델 로딩
+│   ├── model/              # 모델 로딩 및 Hub 업로드
 │   ├── training/           # 학습 모듈
 │   ├── evaluation/         # 평가 메트릭
 │   └── inference/          # 추론 파이프라인
 ├── scripts/
 │   ├── train.py            # 학습 스크립트
 │   ├── evaluate.py         # 평가 스크립트
-│   └── inference.py        # 추론 스크립트
+│   ├── inference.py        # 추론 스크립트
+│   └── upload_to_hub.py    # Hub 업로드 스크립트
 └── data/
     ├── raw/                # 원본 데이터
     └── processed/          # 전처리된 데이터
@@ -93,6 +95,82 @@ python scripts/inference.py --interactive
 
 # 디렉토리 일괄 번역
 python scripts/inference.py --input-dir docs/ko --output-dir docs/en
+```
+
+### 5. Hugging Face Hub 업로드
+
+학습된 모델을 Hugging Face Hub에 업로드하여 공유할 수 있습니다.
+
+#### 인증 설정
+
+```bash
+# 방법 1: CLI 로그인 (권장)
+huggingface-cli login
+
+# 방법 2: 환경 변수
+export HF_TOKEN=hf_xxxxxxxxxxxxx
+```
+
+#### 학습 완료 후 자동 업로드
+
+```bash
+# 학습 완료 시 자동으로 Hub에 업로드
+python scripts/train.py --config configs/training_config.yaml --qlora \
+    --push-to-hub \
+    --hub-repo-id your-username/exaone-markdown-translator
+
+# 비공개 리포지토리로 업로드
+python scripts/train.py --config configs/training_config.yaml --qlora \
+    --push-to-hub \
+    --hub-repo-id your-org/internal-model \
+    --hub-private
+```
+
+#### 수동 업로드
+
+```bash
+# 어댑터만 업로드 (용량 작음, 추천)
+python scripts/upload_to_hub.py \
+    --adapter-path outputs/checkpoints/final/adapter \
+    --repo-id your-username/exaone-markdown-translator
+
+# 병합된 전체 모델 업로드 (단독 사용 가능)
+python scripts/upload_to_hub.py \
+    --adapter-path outputs/checkpoints/final/adapter \
+    --repo-id your-username/exaone-markdown-translator-merged \
+    --merge
+
+# 비공개 + 커스텀 설정
+python scripts/upload_to_hub.py \
+    --adapter-path outputs/checkpoints/final/adapter \
+    --repo-id your-username/my-translator \
+    --config configs/hub_config.yaml \
+    --private
+```
+
+#### Hub에서 모델 사용하기
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+# 기본 모델 로드
+base_model = AutoModelForCausalLM.from_pretrained(
+    "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True
+)
+
+# LoRA 어댑터 로드
+model = PeftModel.from_pretrained(
+    base_model,
+    "your-username/exaone-markdown-translator"
+)
+tokenizer = AutoTokenizer.from_pretrained(
+    "your-username/exaone-markdown-translator"
+)
 ```
 
 ## Configuration
