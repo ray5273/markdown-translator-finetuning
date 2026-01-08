@@ -24,7 +24,7 @@ source venv/bin/activate  # Linux/Mac
 .\venv\Scripts\activate  # Windows
 
 # 의존성 설치
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Project Structure
