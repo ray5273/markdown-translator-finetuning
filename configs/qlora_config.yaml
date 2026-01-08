@@ -33,5 +33,5 @@ lora:
 
 # Model loading settings
 model:
-  use_flash_attention: true
+  use_flash_attention: false  # Set to false if flash_attn is not installed
   device_map: "auto"
