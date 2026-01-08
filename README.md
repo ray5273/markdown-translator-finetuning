@@ -10,7 +10,7 @@ EXAONE 3.5-7.8B 모델을 파인튜닝하여 한국어 마크다운 문서를 �
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - CUDA 11.8+
 - GPU: 12GB+ VRAM (QLoRA), 24GB+ VRAM (LoRA)
 

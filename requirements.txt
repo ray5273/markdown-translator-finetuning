@@ -1,5 +1,5 @@
 # EXAONE 3.5 Markdown Translation Finetuning
-# Python 3.10+ required
+# Python 3.11+ required
 
 # Core ML
 torch>=2.1.0
