@@ -1,0 +1,46 @@
+name: Markdown preservation validation
+
+on:
+  push:
+    paths:
+      - "data/**/*.jsonl"
+      - "scripts/validate_markdown_preservation.py"
+      - ".github/workflows/markdown_preservation.yml"
+  pull_request:
+    paths:
+      - "data/**/*.jsonl"
+      - "scripts/validate_markdown_preservation.py"
+      - ".github/workflows/markdown_preservation.yml"
+
+jobs:
+  validate-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Validate markdown preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_dir="outputs/markdown_preservation"
+          mkdir -p "$output_dir"
+          while IFS= read -r file; do
+            name=$(basename "$file" .jsonl)
+            python scripts/validate_markdown_preservation.py \
+              --input "$file" \
+              --max-issues 1 \
+              --min-overall-rate 0.9999 \
+              --output "$output_dir/${name}_report.json"
+          done < <(find data -name "*.jsonl" -print)
+
+      - name: Upload markdown preservation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-preservation-reports
+          path: outputs/markdown_preservation
