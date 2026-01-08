@@ -489,50 +489,69 @@ print(result)
         "project_name": ["DataProcessor", "ImageAnalyzer", "TextParser", "APIClient", "FileManager"],
         "package_name": ["dataproc", "imganalyze", "textparse", "apiclient", "filemgr"],
         "class_name": ["Processor", "Analyzer", "Parser", "Client", "Manager"],
-        "description_ko": [
-            "데이터 처리를 위한 고성능 라이브러리입니다.",
-            "이미지 분석을 위한 Python 패키지입니다.",
-            "텍스트 파싱 도구 모음입니다.",
-        ],
-        "description_en": [
-            "A high-performance library for data processing.",
-            "A Python package for image analysis.",
-            "A collection of text parsing tools.",
-        ],
-        "feature1_ko": ["빠른 처리", "간편한 API", "확장 가능"],
-        "feature1_en": ["Fast Processing", "Simple API", "Extensible"],
-        "feature1_desc_ko": ["멀티스레딩을 지원합니다", "직관적인 인터페이스를 제공합니다", "플러그인 시스템을 지원합니다"],
-        "feature1_desc_en": ["Supports multi-threading", "Provides intuitive interface", "Supports plugin system"],
-        "feature2_ko": ["타입 안전", "문서화", "테스트 완료"],
-        "feature2_en": ["Type Safe", "Well Documented", "Fully Tested"],
-        "feature2_desc_ko": ["완전한 타입 힌트를 제공합니다", "상세한 문서가 제공됩니다", "100% 테스트 커버리지"],
-        "feature2_desc_en": ["Full type hints provided", "Comprehensive documentation", "100% test coverage"],
         "func_name": ["process_data", "analyze_image", "parse_text", "fetch_api", "read_file"],
-        "func_desc_ko": [
-            "입력 데이터를 처리하고 결과를 반환합니다.",
-            "이미지를 분석하고 특징을 추출합니다.",
-            "텍스트를 파싱하여 구조화된 데이터로 변환합니다.",
-        ],
-        "func_desc_en": [
-            "Processes input data and returns the result.",
-            "Analyzes an image and extracts features.",
-            "Parses text and converts it to structured data.",
-        ],
         "param1": ["input", "data", "text", "path"],
         "type1": ["str", "bytes", "List[str]", "Path"],
-        "param1_desc_ko": ["처리할 입력 데이터", "분석할 데이터", "파싱할 텍스트", "파일 경로"],
-        "param1_desc_en": ["Input data to process", "Data to analyze", "Text to parse", "File path"],
         "param1_val": ['"hello"', 'b"data"', '["a", "b"]', 'Path("./file")'],
         "param2": ["options", "config", "format", "encoding"],
         "type2": ["dict", "Config", "str", "str"],
-        "param2_desc_ko": ["처리 옵션", "설정 객체", "출력 형식", "인코딩"],
-        "param2_desc_en": ["Processing options", "Configuration object", "Output format", "Encoding"],
         "param2_val": ['{}', 'Config()', '"json"', '"utf-8"'],
         "return_type": ["Result", "dict", "List[str]", "bytes"],
-        "return_desc_ko": ["처리 결과 객체", "분석 결과 딕셔너리", "파싱된 문자열 리스트", "처리된 바이트"],
-        "return_desc_en": ["Processing result object", "Analysis result dictionary", "List of parsed strings", "Processed bytes"],
-        "note_ko": ["이 함수는 스레드 안전합니다.", "대용량 데이터의 경우 배치 처리를 권장합니다."],
-        "note_en": ["This function is thread-safe.", "For large data, batch processing is recommended."],
+    }
+
+    PAIRED_VARIABLES = {
+        "description": [
+            ("데이터 처리를 위한 고성능 라이브러리입니다.", "A high-performance library for data processing."),
+            ("이미지 분석을 위한 Python 패키지입니다.", "A Python package for image analysis."),
+            ("텍스트 파싱 도구 모음입니다.", "A collection of text parsing tools."),
+        ],
+        "feature1": [
+            ("빠른 처리", "Fast Processing"),
+            ("간편한 API", "Simple API"),
+            ("확장 가능", "Extensible"),
+        ],
+        "feature1_desc": [
+            ("멀티스레딩을 지원합니다", "Supports multi-threading"),
+            ("직관적인 인터페이스를 제공합니다", "Provides intuitive interface"),
+            ("플러그인 시스템을 지원합니다", "Supports plugin system"),
+        ],
+        "feature2": [
+            ("타입 안전", "Type Safe"),
+            ("문서화", "Well Documented"),
+            ("테스트 완료", "Fully Tested"),
+        ],
+        "feature2_desc": [
+            ("완전한 타입 힌트를 제공합니다", "Full type hints provided"),
+            ("상세한 문서가 제공됩니다", "Comprehensive documentation"),
+            ("100% 테스트 커버리지", "100% test coverage"),
+        ],
+        "func_desc": [
+            ("입력 데이터를 처리하고 결과를 반환합니다.", "Processes input data and returns the result."),
+            ("이미지를 분석하고 특징을 추출합니다.", "Analyzes an image and extracts features."),
+            ("텍스트를 파싱하여 구조화된 데이터로 변환합니다.", "Parses text and converts it to structured data."),
+        ],
+        "param1_desc": [
+            ("처리할 입력 데이터", "Input data to process"),
+            ("분석할 데이터", "Data to analyze"),
+            ("파싱할 텍스트", "Text to parse"),
+            ("파일 경로", "File path"),
+        ],
+        "param2_desc": [
+            ("처리 옵션", "Processing options"),
+            ("설정 객체", "Configuration object"),
+            ("출력 형식", "Output format"),
+            ("인코딩", "Encoding"),
+        ],
+        "return_desc": [
+            ("처리 결과 객체", "Processing result object"),
+            ("분석 결과 딕셔너리", "Analysis result dictionary"),
+            ("파싱된 문자열 리스트", "List of parsed strings"),
+            ("처리된 바이트", "Processed bytes"),
+        ],
+        "note": [
+            ("이 함수는 스레드 안전합니다.", "This function is thread-safe."),
+            ("대용량 데이터의 경우 배치 처리를 권장합니다.", "For large data, batch processing is recommended."),
+        ],
     }
 
     def __init__(self, seed: int = 42):
@@ -556,8 +575,17 @@ print(result)
         """샘플 생성"""
         template = random.choice(self.TEMPLATES)
 
-        korean = self._fill_template(template["korean"], self.VARIABLES)
-        english = self._fill_template(template["english"], self.VARIABLES)
+        variables = {}
+        for key, values in self.VARIABLES.items():
+            variables[key] = random.choice(values)
+
+        for key, pairs in self.PAIRED_VARIABLES.items():
+            korean_value, english_value = random.choice(pairs)
+            variables[f"{key}_ko"] = korean_value
+            variables[f"{key}_en"] = english_value
+
+        korean = self._fill_template(template["korean"], variables)
+        english = self._fill_template(template["english"], variables)
 
         return korean, english
 
