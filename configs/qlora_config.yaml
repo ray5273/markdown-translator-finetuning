@@ -1,0 +1,37 @@
+# QLoRA Configuration for EXAONE 3.5-7.8B (4-bit)
+# Use this config when you have 12-16GB VRAM (RTX 3090, 4080)
+
+# Quantization settings
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"           # Normal Float 4-bit (best for LLMs)
+  bnb_4bit_compute_dtype: "bfloat16"   # Compute precision
+  bnb_4bit_use_double_quant: true      # Nested quantization (saves ~0.4 bits/param)
+
+# LoRA settings
+lora:
+  r: 64                      # Rank - higher for complex tasks like translation
+  lora_alpha: 128            # Alpha = 2 * r (Microsoft recommendation)
+  lora_dropout: 0.05         # Dropout for regularization
+  bias: "none"               # No bias training
+  task_type: "CAUSAL_LM"
+
+  # EXAONE 3.5 target modules
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+  # RSLoRA for more stable training with quantization
+  use_rslora: true
+
+  modules_to_save: null
+
+# Model loading settings
+model:
+  use_flash_attention: true
+  device_map: "auto"

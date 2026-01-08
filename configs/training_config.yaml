@@ -1,0 +1,69 @@
+# Training Configuration for EXAONE 3.5-7.8B Markdown Translation
+
+# Model settings
+model:
+  name: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  max_length: 4096
+  trust_remote_code: true
+
+# Training hyperparameters
+training:
+  output_dir: "outputs/checkpoints"
+
+  # Training schedule
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8      # Effective batch size = 16
+
+  # Optimization
+  learning_rate: 2.0e-4               # Recommended for LoRA
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  optim: "adamw_8bit"                 # 8-bit Adam (memory efficient)
+
+  # Precision
+  bf16: true
+  tf32: true
+
+  # Logging & Checkpointing
+  logging_dir: "outputs/logs"
+  logging_steps: 10
+  save_strategy: "steps"
+  save_steps: 500
+  eval_strategy: "steps"
+  eval_steps: 500
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+
+  # Memory optimization
+  gradient_checkpointing: true
+  max_grad_norm: 0.3
+
+  # Data loading
+  group_by_length: true
+  dataloader_num_workers: 4
+  dataloader_pin_memory: true
+
+  # Experiment tracking
+  report_to: "wandb"
+  run_name: "exaone-markdown-translator"
+
+# Data paths
+data:
+  train_file: "data/processed/train.jsonl"
+  valid_file: "data/processed/valid.jsonl"
+  test_file: "data/processed/test.jsonl"
+
+# WandB settings
+wandb:
+  project: "exaone-markdown-translator"
+  entity: null  # Your WandB username/team
+  tags:
+    - "exaone"
+    - "translation"
+    - "markdown"
+    - "korean-english"

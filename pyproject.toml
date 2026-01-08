@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markdown-translator-finetuning"
+version = "0.1.0"
+description = "EXAONE 3.5-7.8B finetuning for Korean to English markdown translation"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Your Name", email = "your@email.com"}
+]
+keywords = ["llm", "finetuning", "translation", "markdown", "exaone"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "torch>=2.1.0",
+    "transformers>=4.43.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.24.0",
+    "peft>=0.7.0",
+    "bitsandbytes>=0.41.0",
+    "sacrebleu>=2.3.0",
+    "unbabel-comet>=2.2.0",
+    "evaluate>=0.4.0",
+    "pandas>=2.0.0",
+    "tiktoken>=0.5.0",
+    "mistune>=3.0.0",
+    "wandb>=0.15.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.65.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+train = "scripts.train:main"
+evaluate = "scripts.evaluate:main"
+inference = "scripts.inference:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "scripts*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

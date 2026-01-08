@@ -1,0 +1,33 @@
+# LoRA Configuration for EXAONE 3.5-7.8B (16-bit)
+# Use this config when you have 24GB+ VRAM (RTX 4090, A5000, A6000)
+
+lora:
+  r: 64                      # Rank - higher for complex tasks like translation
+  lora_alpha: 128            # Alpha = 2 * r (Microsoft recommendation)
+  lora_dropout: 0.05         # Dropout for regularization
+  bias: "none"               # No bias training
+  task_type: "CAUSAL_LM"
+
+  # EXAONE 3.5 target modules
+  # These are the attention and MLP projection layers
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+  # RSLoRA for more stable training
+  use_rslora: true
+
+  # Modules to save (for checkpoint saving)
+  modules_to_save: null
+
+# Model loading settings (16-bit)
+model:
+  load_in_4bit: false
+  load_in_8bit: false
+  torch_dtype: "bfloat16"
+  use_flash_attention: true

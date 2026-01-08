@@ -1,0 +1,45 @@
+# Inference Configuration for EXAONE 3.5-7.8B Markdown Translator
+
+# Model paths
+model:
+  base_model: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  adapter_path: "outputs/checkpoints/final"  # LoRA adapter path
+  merged_model_path: null                     # Optional: path to merged model
+
+  # Loading options
+  trust_remote_code: true
+  device_map: "auto"
+  torch_dtype: "bfloat16"
+  use_flash_attention: true
+
+  # Quantization for inference (optional)
+  load_in_4bit: false
+  load_in_8bit: false
+
+# Generation settings
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3              # Low temperature for consistent translation
+  top_p: 0.9
+  top_k: 50
+  do_sample: true
+  repetition_penalty: 1.0       # EXAONE recommendation: <= 1.0
+  num_beams: 1                  # Greedy/Sampling (beam search optional)
+
+  # Stopping criteria
+  stop_strings:
+    - "[|endofturn|]"
+    - "<|end|>"
+
+  # Batch inference
+  batch_size: 4
+
+# Post-processing
+post_process:
+  strip_whitespace: true
+  restore_markdown_placeholders: true
+
+# Evaluation data
+evaluation:
+  test_file: "data/processed/test.jsonl"
+  output_file: "outputs/results/predictions.jsonl"
