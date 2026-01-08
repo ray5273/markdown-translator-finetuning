@@ -6,9 +6,13 @@
 import torch
 from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
-import yaml
 from dataclasses import dataclass
 
+from src.utils.dependencies import require_dependencies
+
+require_dependencies([("yaml", "pyyaml")])
+
+import yaml
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
