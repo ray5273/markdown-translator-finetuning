@@ -89,6 +89,30 @@ def parse_args():
         help="Disable WandB logging"
     )
 
+    # Hub upload options
+    parser.add_argument(
+        "--push-to-hub",
+        action="store_true",
+        help="Push trained model to Hugging Face Hub after training"
+    )
+    parser.add_argument(
+        "--hub-repo-id",
+        type=str,
+        default=None,
+        help="Hugging Face Hub repository ID (e.g., 'username/model-name')"
+    )
+    parser.add_argument(
+        "--hub-private",
+        action="store_true",
+        help="Make the Hub repository private"
+    )
+    parser.add_argument(
+        "--hub-token",
+        type=str,
+        default=None,
+        help="Hugging Face API token (or set HF_TOKEN env var)"
+    )
+
     return parser.parse_args()
 
 
@@ -245,9 +269,56 @@ def main():
     # 최종 모델 저장
     print("\nSaving final model...")
     final_output_dir = Path(train_config['output_dir']) / "final"
-    model.save_pretrained(final_output_dir / "adapter")
-    tokenizer.save_pretrained(final_output_dir / "adapter")
-    print(f"Model saved to {final_output_dir / 'adapter'}")
+    final_adapter_path = final_output_dir / "adapter"
+    model.save_pretrained(final_adapter_path)
+    tokenizer.save_pretrained(final_adapter_path)
+    print(f"Model saved to {final_adapter_path}")
+
+    # 학습 정보 저장 (Hub 업로드용)
+    training_info = {
+        "base_model": model_name,
+        "num_train_epochs": train_config['num_train_epochs'],
+        "per_device_train_batch_size": train_config['per_device_train_batch_size'],
+        "gradient_accumulation_steps": train_config['gradient_accumulation_steps'],
+        "learning_rate": train_config['learning_rate'],
+        "lr_scheduler_type": train_config['lr_scheduler_type'],
+        "warmup_ratio": train_config['warmup_ratio'],
+        "use_qlora": args.qlora,
+        "use_masking": args.use_masking,
+    }
+    import json
+    with open(final_output_dir / "training_info.json", 'w') as f:
+        json.dump(training_info, f, indent=2)
+
+    # Hugging Face Hub 업로드
+    if args.push_to_hub:
+        print("\n" + "=" * 60)
+        print("Uploading to Hugging Face Hub...")
+        print("=" * 60)
+
+        try:
+            from src.model.hub_uploader import HubUploader
+
+            if not args.hub_repo_id:
+                print("Error: --hub-repo-id is required when using --push-to-hub")
+            else:
+                uploader = HubUploader(token=args.hub_token)
+
+                if uploader.authenticate(args.hub_token):
+                    repo_url = uploader.upload(
+                        adapter_path=str(final_adapter_path),
+                        repo_id=args.hub_repo_id,
+                        private=args.hub_private,
+                        training_info=training_info
+                    )
+                    print(f"\nModel uploaded to: {repo_url}")
+                else:
+                    print("Hub authentication failed. Model saved locally only.")
+
+        except Exception as e:
+            print(f"Hub upload failed: {e}")
+            print("Model saved locally. You can upload manually using:")
+            print(f"  python scripts/upload_to_hub.py --adapter-path {final_adapter_path} --repo-id YOUR_REPO_ID")
 
     # WandB 종료
     try:

@@ -1,0 +1,121 @@
+# Hugging Face Hub Upload Configuration
+# ======================================
+
+# Hub repository settings
+hub:
+  # Repository name (format: username/repo-name or organization/repo-name)
+  # If not specified, will be prompted during upload
+  repo_id: null
+
+  # Repository visibility: "public" or "private"
+  private: false
+
+  # Commit message for the upload
+  commit_message: "Upload fine-tuned EXAONE markdown translator model"
+
+  # Branch to upload to (default: main)
+  branch: "main"
+
+  # Create repository if it doesn't exist
+  create_repo: true
+
+# Model card settings
+model_card:
+  # Language of the model
+  language:
+    - ko
+    - en
+
+  # License
+  license: "apache-2.0"
+
+  # Model tags for discoverability
+  tags:
+    - translation
+    - korean
+    - english
+    - markdown
+    - lora
+    - peft
+    - exaone
+
+  # Pipeline tag for Hugging Face Inference API
+  pipeline_tag: "text-generation"
+
+  # Base model reference
+  base_model: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+
+  # Dataset used for training (optional)
+  datasets: []
+
+  # Model description (supports markdown)
+  description: |
+    # EXAONE 3.5 Markdown Translator
+
+    This is a fine-tuned version of [LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct](https://huggingface.co/LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct)
+    for Korean to English markdown document translation.
+
+    ## Model Description
+
+    - **Base Model**: EXAONE 3.5-7.8B-Instruct
+    - **Fine-tuning Method**: LoRA/QLoRA
+    - **Task**: Korean to English Translation
+    - **Special Feature**: Preserves markdown structure during translation
+
+    ## Intended Uses
+
+    - Translating Korean technical documents to English
+    - Translating Korean markdown files (README, documentation)
+    - API documentation translation
+
+    ## How to Use
+
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
+
+    # Load base model
+    base_model = AutoModelForCausalLM.from_pretrained(
+        "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True
+    )
+
+    # Load LoRA adapter
+    model = PeftModel.from_pretrained(base_model, "YOUR_USERNAME/YOUR_MODEL_NAME")
+    tokenizer = AutoTokenizer.from_pretrained("YOUR_USERNAME/YOUR_MODEL_NAME")
+    ```
+
+    ## Training Details
+
+    - **Framework**: PyTorch + Transformers + PEFT
+    - **Training Objective**: Causal Language Modeling
+    - **Optimization**: AdamW 8-bit
+
+    ## Limitations
+
+    - Optimized for markdown documents
+    - Best performance with technical/documentation content
+    - May not perform well on casual or literary text
+
+# Upload options
+upload:
+  # What to upload
+  # - "adapter": Upload only LoRA adapter (smaller, requires base model)
+  # - "merged": Upload full merged model (larger, standalone)
+  # - "both": Upload both adapter and merged versions
+  mode: "adapter"
+
+  # Include tokenizer files
+  include_tokenizer: true
+
+  # Include training config
+  include_config: true
+
+  # Include sample inference code
+  include_inference_example: true
+
+  # Maximum file size for single upload (in bytes)
+  # Files larger than this will use LFS
+  large_file_threshold: 10485760  # 10MB

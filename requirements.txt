@@ -26,6 +26,9 @@ requests>=2.31.0
 # Experiment Tracking
 wandb>=0.15.0
 
+# Hugging Face Hub
+huggingface_hub>=0.19.0
+
 # Utils
 pyyaml>=6.0
 tqdm>=4.65.0
