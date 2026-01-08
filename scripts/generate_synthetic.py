@@ -27,12 +27,17 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data.synthetic_generator import (
-    SyntheticDataGenerator,
-    TemplateBasedGenerator,
-    OpenAIProvider,
-    AnthropicProvider
+# 직접 모듈 임포트 (torch 등 무거운 의존성 회피)
+import importlib.util
+spec = importlib.util.spec_from_file_location(
+    "synthetic_generator",
+    PROJECT_ROOT / "src" / "data" / "synthetic_generator.py"
 )
+synthetic_generator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(synthetic_generator)
+
+SyntheticDataGenerator = synthetic_generator.SyntheticDataGenerator
+TemplateBasedGenerator = synthetic_generator.TemplateBasedGenerator
 
 
 def parse_args():

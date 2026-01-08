@@ -26,8 +26,23 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from tqdm import tqdm
 
-from src.data.preprocessor import DataPreprocessor, TranslationExample
-from src.data.markdown_parser import MarkdownPreserver
+# 직접 모듈 임포트 (torch 등 무거운 의존성 회피)
+import importlib.util
+
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # sys.modules에 등록하여 다른 모듈에서 import 가능
+    spec.loader.exec_module(module)
+    return module
+
+# markdown_parser를 먼저 로드 (preprocessor가 이를 import함)
+parser_module = load_module("markdown_parser", PROJECT_ROOT / "src" / "data" / "markdown_parser.py")
+preprocessor_module = load_module("preprocessor", PROJECT_ROOT / "src" / "data" / "preprocessor.py")
+
+DataPreprocessor = preprocessor_module.DataPreprocessor
+TranslationExample = preprocessor_module.TranslationExample
+MarkdownPreserver = parser_module.MarkdownPreserver
 
 
 def parse_args():

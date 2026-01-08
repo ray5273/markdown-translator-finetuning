@@ -39,11 +39,19 @@ env/
 
 # Data (keep structure, ignore large files)
 data/raw/*
-data/processed/*
-data/synthetic/*
 !data/raw/.gitkeep
+
+# Keep example/sample data for demonstration
+data/processed/*
 !data/processed/.gitkeep
+!data/processed/train.jsonl
+!data/processed/valid.jsonl
+!data/processed/test.jsonl
+
+data/synthetic/*
 !data/synthetic/.gitkeep
+!data/synthetic/sample_pairs.jsonl
+!data/synthetic/template_pairs.jsonl
 
 # Outputs
 outputs/checkpoints/*

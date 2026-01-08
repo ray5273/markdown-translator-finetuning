@@ -6,11 +6,15 @@
 import json
 import random
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from dataclasses import dataclass, asdict
 from tqdm import tqdm
 
-from .markdown_parser import MarkdownPreserver
+# 상대/절대 import 모두 지원
+try:
+    from .markdown_parser import MarkdownPreserver
+except ImportError:
+    from markdown_parser import MarkdownPreserver
 
 
 @dataclass
