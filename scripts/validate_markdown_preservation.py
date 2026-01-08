@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import importlib.util
 import json
 import sys
 from collections import Counter, defaultdict
@@ -19,8 +20,27 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data.markdown_parser import MarkdownPreserver
-from src.evaluation.metrics import MarkdownPreservationMetrics
+
+def _load_module(module_name: str, module_path: Path):
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load module {module_name} from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+markdown_parser = _load_module(
+    "markdown_parser",
+    PROJECT_ROOT / "src" / "data" / "markdown_parser.py"
+)
+metrics_module = _load_module(
+    "metrics",
+    PROJECT_ROOT / "src" / "evaluation" / "metrics.py"
+)
+
+MarkdownPreserver = markdown_parser.MarkdownPreserver
+MarkdownPreservationMetrics = metrics_module.MarkdownPreservationMetrics
 
 
 def parse_args():
