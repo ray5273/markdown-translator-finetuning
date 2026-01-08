@@ -6,8 +6,12 @@ EXAONE 3.5-7.8B 모델을 로드하고 LoRA/QLoRA를 적용합니다.
 import torch
 from typing import Tuple, Optional, Dict, Any
 from pathlib import Path
-import yaml
 
+from src.utils.dependencies import require_dependencies
+
+require_dependencies([("yaml", "pyyaml")])
+
+import yaml
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
