@@ -52,6 +52,7 @@ data/synthetic/*
 !data/synthetic/.gitkeep
 !data/synthetic/sample_pairs.jsonl
 !data/synthetic/template_pairs.jsonl
+!data/synthetic/template_pairs_1000.jsonl
 
 # Outputs
 outputs/checkpoints/*
