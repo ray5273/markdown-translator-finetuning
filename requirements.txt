@@ -10,6 +10,7 @@ accelerate>=0.24.0
 # PEFT & Quantization
 peft>=0.7.0
 bitsandbytes>=0.41.0
+flash-attn @ https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp311-cp311-linux_x86_64.whl
 
 # Evaluation
 sacrebleu>=2.3.0

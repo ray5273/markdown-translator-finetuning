@@ -3,6 +3,7 @@
 EXAONE 3.5-7.8B 모델을 로드하고 LoRA/QLoRA를 적용합니다.
 """
 
+import importlib.util
 import torch
 from typing import Tuple, Optional, Dict, Any
 from pathlib import Path
@@ -169,7 +170,13 @@ class ModelLoader:
         # Attention 구현 선택
         attn_implementation = None
         if model_config.get('use_flash_attention', True):
-            attn_implementation = "flash_attention_2"
+            if importlib.util.find_spec("flash_attn") is not None:
+                attn_implementation = "flash_attention_2"
+            else:
+                print(
+                    "FlashAttention2 requested but flash_attn is not installed. "
+                    "Falling back to default attention implementation."
+                )
 
         # 모델 로드
         model = AutoModelForCausalLM.from_pretrained(
