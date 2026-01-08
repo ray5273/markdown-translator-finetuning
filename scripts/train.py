@@ -2,8 +2,8 @@
 """마크다운 번역 파인튜닝 학습 스크립트
 
 Usage:
-    python scripts/train.py --config configs/training_config.yaml
-    python scripts/train.py --config configs/training_config.yaml --qlora
+    python scripts/train.py --model "meta-llama/Llama-3.1-8B-Instruct"
+    python scripts/train.py --model "Qwen/Qwen2.5-7B-Instruct" --qlora
     python scripts/train.py --config configs/training_config.yaml --yes  # skip confirmation
 """
 
@@ -43,6 +43,13 @@ def parse_args():
     """명령행 인자 파싱"""
     parser = argparse.ArgumentParser(description="Train markdown translator model with LoRA/QLoRA")
 
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=None,
+        help="HuggingFace model ID to fine-tune (overrides config file). "
+             "Examples: meta-llama/Llama-3.1-8B-Instruct, Qwen/Qwen2.5-7B-Instruct"
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -192,7 +199,7 @@ def print_config_summary(config: dict, lora_config: dict, args) -> None:
     if args.no_wandb:
         print(f"  WandB            : Disabled")
     else:
-        print(f"  WandB Project    : {args.wandb_project or wandb_config.get('project', 'exaone-markdown-translator')}")
+        print(f"  WandB Project    : {args.wandb_project or wandb_config.get('project', 'markdown-translator')}")
         print(f"  WandB Entity     : {wandb_config.get('entity', 'N/A')}")
     print(f"  Logging Steps    : {train_config.get('logging_steps', 'N/A')}")
     print(f"  Save Strategy    : {train_config.get('save_strategy', 'N/A')}")
@@ -237,7 +244,7 @@ def setup_wandb(config: dict, args):
         import wandb
 
         wandb_config = config.get('wandb', {})
-        project = args.wandb_project or wandb_config.get('project', 'exaone-markdown-translator')
+        project = args.wandb_project or wandb_config.get('project', 'markdown-translator')
 
         wandb.init(
             project=project,
@@ -268,6 +275,29 @@ def main():
     # LoRA 설정 로드
     lora_config = load_config(lora_config_path)
 
+    # 모델 이름 결정 (CLI 인자 우선)
+    model_name = args.model or config.get('model', {}).get('name')
+    if not model_name:
+        print("\n" + "=" * 70)
+        print("  ERROR: Model not specified  ".center(70, "!"))
+        print("=" * 70)
+        print("\nPlease specify a model using one of these methods:")
+        print("\n  1. Command line argument:")
+        print("     python scripts/train.py --model 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\n  2. Config file (configs/training_config.yaml):")
+        print("     model:")
+        print("       name: 'meta-llama/Llama-3.1-8B-Instruct'")
+        print("\nSupported models (examples):")
+        print("  - LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct")
+        print("  - meta-llama/Llama-3.1-8B-Instruct")
+        print("  - Qwen/Qwen2.5-7B-Instruct")
+        print("  - mistralai/Mistral-7B-Instruct-v0.3")
+        print("=" * 70 + "\n")
+        sys.exit(1)
+
+    # CLI에서 모델을 지정한 경우 config에도 반영
+    config['model']['name'] = model_name
+
     # Configuration 요약 출력
     print_config_summary(config, lora_config, args)
 
@@ -287,7 +317,6 @@ def main():
     loader = ModelLoader(config_path=lora_config_path)
 
     # 모델 및 토크나이저 로드
-    model_name = config['model']['name']
     print(f"Loading model: {model_name}")
 
     model, tokenizer = loader.load_model_and_tokenizer(
@@ -352,7 +381,7 @@ def main():
         dataloader_num_workers=train_config.get('dataloader_num_workers', 4),
         dataloader_pin_memory=True,
         report_to="none" if args.no_wandb else train_config.get('report_to', 'wandb'),
-        run_name=train_config.get('run_name', 'exaone-markdown-translator'),
+        run_name=train_config.get('run_name', 'markdown-translator'),
     )
 
     # 콜백 설정

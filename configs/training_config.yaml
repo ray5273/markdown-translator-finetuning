@@ -1,8 +1,14 @@
-# Training Configuration for EXAONE 3.5-7.8B Markdown Translation
+# Training Configuration for Markdown Translation Fine-tuning
 
 # Model settings
 model:
-  name: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  # REQUIRED: Specify the HuggingFace model ID to fine-tune
+  # Examples:
+  #   - "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+  #   - "meta-llama/Llama-3.1-8B-Instruct"
+  #   - "Qwen/Qwen2.5-7B-Instruct"
+  #   - "mistralai/Mistral-7B-Instruct-v0.3"
+  name: null  # <-- SET YOUR MODEL HERE
   max_length: 4096
   trust_remote_code: true
 
@@ -50,7 +56,7 @@ training:
 
   # Experiment tracking
   report_to: "wandb"
-  run_name: "exaone-markdown-translator"
+  run_name: "markdown-translator"
 
 # Data paths
 data:
@@ -60,10 +66,10 @@ data:
 
 # WandB settings
 wandb:
-  project: "exaone-markdown-translator"
+  project: "markdown-translator"
   entity: null  # Your WandB username/team
   tags:
-    - "exaone"
     - "translation"
     - "markdown"
-    - "korean-english"
+    - "lora"
+    - "fine-tuning"

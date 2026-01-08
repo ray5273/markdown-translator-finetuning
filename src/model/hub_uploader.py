@@ -77,7 +77,7 @@ class HubUploader:
                 'license': 'apache-2.0',
                 'tags': ['translation', 'korean', 'english', 'lora', 'peft'],
                 'pipeline_tag': 'text-generation',
-                'base_model': 'LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct'
+                'base_model': None  # Will be set from training info or CLI
             },
             'upload': {
                 'mode': 'adapter',
@@ -191,9 +191,10 @@ class HubUploader:
 
         return str(card)
 
-    def _create_inference_example(self, repo_id: str, output_dir: Path):
+    def _create_inference_example(self, repo_id: str, output_dir: Path, base_model: Optional[str] = None):
         """추론 예제 코드 생성"""
-        example_code = f'''"""EXAONE Markdown Translator - Inference Example
+        base_model_str = base_model or "YOUR_BASE_MODEL"
+        example_code = f'''"""Markdown Translator - Inference Example
 
 이 파일은 {repo_id} 모델을 사용하여 추론하는 예제입니다.
 """
@@ -203,14 +204,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 
-def load_model(merge_adapter: bool = False):
+def load_model(base_model_name: str = "{base_model_str}", merge_adapter: bool = False):
     """모델 로드
 
     Args:
+        base_model_name: 기본 모델 이름
         merge_adapter: 어댑터를 기본 모델에 병합할지 여부
                        True면 추론 속도가 빨라지지만 메모리를 더 사용합니다.
     """
-    base_model_name = "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
 
     # 토크나이저 로드
     tokenizer = AutoTokenizer.from_pretrained(
@@ -464,7 +465,7 @@ pip install -r requirements.txt
         # 커밋 메시지
         commit_message = commit_message or hub_config.get(
             'commit_message',
-            "Upload fine-tuned EXAONE markdown translator model"
+            "Upload fine-tuned markdown translator model"
         )
 
         # 리포지토리 생성 또는 확인
@@ -575,7 +576,7 @@ pip install -r requirements.txt
         )
 
         # 모델 및 토크나이저 업로드
-        commit_message = commit_message or "Upload merged EXAONE markdown translator model"
+        commit_message = commit_message or "Upload merged markdown translator model"
 
         print(f"Uploading merged model to {repo_id}...")
         model.push_to_hub(
