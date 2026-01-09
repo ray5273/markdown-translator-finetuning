@@ -189,7 +189,7 @@ class BatchDataGenerator:
     def prepare_batch_file(
         self,
         num_samples: int,
-        output_path: str = "data/synthetic/batch_input.jsonl",
+        output_path: str = None,
         topics: List[str] = None,
         styles: List[str] = None,
         seed: int = None
@@ -198,7 +198,7 @@ class BatchDataGenerator:
 
         Args:
             num_samples: 생성할 샘플 수
-            output_path: 입력 파일 저장 경로
+            output_path: 입력 파일 저장 경로 (None이면 자동 생성)
             topics: 사용할 주제 리스트
             styles: 사용할 스타일 리스트
             seed: 랜덤 시드
@@ -212,7 +212,15 @@ class BatchDataGenerator:
         topics = topics or self.TOPICS
         styles = styles or list(self.STYLES.keys())
 
-        output_path = Path(output_path)
+        # 기본 경로 설정 (현재 파일 기준 상대 경로)
+        if output_path is None:
+            # 프로젝트 루트 찾기
+            current_file = Path(__file__).resolve()
+            project_root = current_file.parent.parent.parent  # src/data -> src -> project_root
+            output_path = project_root / "data" / "synthetic" / "batch_input.jsonl"
+        else:
+            output_path = Path(output_path)
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         requests_metadata = []
@@ -253,7 +261,24 @@ class BatchDataGenerator:
                     "style": style
                 })
 
-        print(f"Batch input file created: {output_path}")
+        # 파일 정보 출력
+        file_size = output_path.stat().st_size
+        print(f"\n=== Batch Input File Created ===")
+        print(f"Path: {output_path}")
+        print(f"Size: {file_size:,} bytes")
+        print(f"Requests: {num_samples}")
+
+        # 첫 번째 요청 샘플 출력 (디버깅용)
+        with open(output_path, 'r', encoding='utf-8') as f:
+            first_line = f.readline()
+            sample = json.loads(first_line)
+            print(f"\nSample request (first line):")
+            print(f"  custom_id: {sample.get('custom_id')}")
+            print(f"  method: {sample.get('method')}")
+            print(f"  url: {sample.get('url')}")
+            print(f"  body.model: {sample.get('body', {}).get('model')}")
+            print(f"  body.messages: {len(sample.get('body', {}).get('messages', []))} messages")
+
         return str(output_path), requests_metadata
 
     def validate_batch_file(self, file_path: str) -> Tuple[bool, List[str]]:
