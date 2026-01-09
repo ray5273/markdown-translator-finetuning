@@ -56,7 +56,9 @@ python -m pip install -r requirements.txt
 
 ### 1. 데이터 준비
 
-학습 데이터를 JSONL 형식으로 준비합니다:
+#### 학습 데이터 형식
+
+학습 데이터는 JSONL 형식으로 준비합니다:
 
 ```json
 {
@@ -67,6 +69,89 @@ python -m pip install -r requirements.txt
   ]
 }
 ```
+
+#### 데이터 생성 방법
+
+4가지 방법으로 학습 데이터를 생성할 수 있습니다:
+
+##### 방법 1: 템플릿 기반 생성 (추천 - API 불필요)
+
+```bash
+python scripts/generate_synthetic.py --method template --num-samples 1000
+```
+
+- **장점**: 무료, 빠름, API 키 불필요
+- **출력**: `data/synthetic/template_pairs.jsonl`
+- 사전 정의된 마크다운 템플릿으로 다양한 한영 번역 쌍 생성
+
+##### 방법 2: OpenAI API 기반 생성
+
+```bash
+export OPENAI_API_KEY="sk-..."
+python scripts/generate_synthetic.py --method openai --num-samples 50 --model "gpt-4o"
+```
+
+- 고품질 번역 쌍 생성
+- 다양한 주제와 스타일 지원
+
+##### 방법 3: Anthropic API 기반 생성
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+python scripts/generate_synthetic.py --method anthropic --num-samples 50 --model "claude-sonnet-4-20250514"
+```
+
+##### 방법 4: 샘플 데이터 생성 (테스트용)
+
+```bash
+python scripts/generate_synthetic.py --method sample --num-samples 20
+```
+
+- 하드코딩된 샘플 사용 (데모/테스트 목적)
+
+#### 데이터 전처리
+
+생성된 데이터를 학습용으로 전처리하고 train/valid/test로 분할합니다:
+
+```bash
+python scripts/prepare_data.py \
+  --input data/raw \
+  --output data/processed \
+  --include-synthetic \
+  --train-ratio 0.8 \
+  --valid-ratio 0.1 \
+  --test-ratio 0.1
+```
+
+**출력 파일**:
+- `data/processed/train.jsonl` (80%)
+- `data/processed/valid.jsonl` (10%)
+- `data/processed/test.jsonl` (10%)
+
+#### 전체 파이프라인 예시
+
+```bash
+# 1단계: 합성 데이터 생성
+python scripts/generate_synthetic.py --method template --num-samples 1000
+
+# 2단계: 전처리 및 분할
+python scripts/prepare_data.py \
+  --input data/raw \
+  --output data/processed \
+  --include-synthetic
+
+# 3단계: 학습 시작
+python scripts/train.py --config configs/training_config.yaml --qlora
+```
+
+#### 데이터 생성 방법 비교
+
+| 방법 | 속도 | 비용 | 품질 | API 필요 |
+|------|------|------|------|---------|
+| 템플릿 기반 | 매우 빠름 | 무료 | 중간 | ❌ |
+| OpenAI | 느림 | 유료 | 높음 | ✅ |
+| Anthropic | 느림 | 유료 | 높음 | ✅ |
+| 샘플 데이터 | 매우 빠름 | 무료 | 낮음 | ❌ |
 
 ### 2. 학습
 
