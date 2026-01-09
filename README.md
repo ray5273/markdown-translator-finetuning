@@ -1,12 +1,18 @@
-# EXAONE 3.5 Markdown Translator
+# OpenWeight Markdown Translator
 
-EXAONE 3.5-7.8B 모델을 파인튜닝하여 한국어 마크다운 문서를 영어로 번역하는 프로젝트입니다.
+Fine-tune various open-weight LLMs to translate Korean markdown documents to English while preserving markdown structure.
+
+Supports multiple open-source models including EXAONE, Llama, Qwen, and Gemma.
+
+[한국어 README](./README-kr.md)
 
 ## Features
 
-- **마크다운 구조 보존**: 코드 블록, 링크, 테이블 등 마크다운 요소를 보존하며 번역
-- **QLoRA 지원**: 4-bit 양자화로 RTX 3090/4080에서도 학습 가능
-- **다양한 평가 메트릭**: BLEU, chrF, COMET + 마크다운 보존율 평가
+- **Multiple Model Support**: EXAONE 3.5, Llama 3.1, Qwen 2.5, Gemma 2, and other open-weight LLMs
+- **Markdown Structure Preservation**: Preserves code blocks, links, tables, and other markdown elements during translation
+- **QLoRA Support**: Train on RTX 3090/4080 with 4-bit quantization
+- **Flexible Data Generation**: Generate training data via templates, OpenAI, Anthropic, Ollama, or vLLM
+- **Comprehensive Evaluation**: BLEU, chrF, COMET + markdown preservation rate metrics
 
 ## Requirements
 
@@ -17,168 +23,177 @@ EXAONE 3.5-7.8B 모델을 파인튜닝하여 한국어 마크다운 문서를 �
 ## Installation
 
 ```bash
-# 가상환경 생성
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # or
 .\venv\Scripts\activate  # Windows
 
-# 의존성 설치
+# Install dependencies
 python -m pip install -r requirements.txt
 ```
 
 ## Project Structure
 
 ```
-├── configs/                 # 설정 파일
-│   ├── qlora_config.yaml   # QLoRA 설정
-│   ├── lora_config.yaml    # LoRA 설정
-│   ├── training_config.yaml # 학습 설정
-│   ├── inference_config.yaml # 추론 설정
-│   └── hub_config.yaml     # Hugging Face Hub 업로드 설정
+├── configs/                 # Configuration files
+│   ├── qlora_config.yaml   # QLoRA settings
+│   ├── lora_config.yaml    # LoRA settings
+│   ├── training_config.yaml # Training settings
+│   ├── inference_config.yaml # Inference settings
+│   └── hub_config.yaml     # Hugging Face Hub upload settings
 ├── src/
-│   ├── data/               # 데이터 처리
-│   ├── model/              # 모델 로딩 및 Hub 업로드
-│   ├── training/           # 학습 모듈
-│   ├── evaluation/         # 평가 메트릭
-│   └── inference/          # 추론 파이프라인
+│   ├── data/               # Data processing
+│   ├── model/              # Model loading & Hub upload
+│   ├── training/           # Training modules
+│   ├── evaluation/         # Evaluation metrics
+│   └── inference/          # Inference pipeline
 ├── scripts/
-│   ├── train.py            # 학습 스크립트
-│   ├── evaluate.py         # 평가 스크립트
-│   ├── inference.py        # 추론 스크립트
-│   └── upload_to_hub.py    # Hub 업로드 스크립트
+│   ├── train.py            # Training script
+│   ├── evaluate.py         # Evaluation script
+│   ├── inference.py        # Inference script
+│   └── upload_to_hub.py    # Hub upload script
 └── data/
-    ├── raw/                # 원본 데이터
-    └── processed/          # 전처리된 데이터
+    ├── raw/                # Raw data
+    └── processed/          # Preprocessed data
 ```
+
+## Supported Models
+
+| Model | Model ID | VRAM (QLoRA) | Note |
+|-------|----------|--------------|------|
+| EXAONE 3.5 | `LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct` | 12GB | Korean specialized |
+| Llama 3.1 | `meta-llama/Llama-3.1-8B-Instruct` | 10GB | General purpose |
+| Qwen 2.5 | `Qwen/Qwen2.5-7B-Instruct` | 10GB | Multilingual |
+| Gemma 2 | `google/gemma-2-9b-it` | 12GB | Balanced performance |
 
 ## Usage
 
-### 1. 데이터 준비
+### 1. Data Preparation
 
-#### 학습 데이터 형식
+#### Training Data Format
 
-학습 데이터는 JSONL 형식으로 준비합니다:
+Training data should be in JSONL format:
 
 ```json
 {
   "messages": [
     {"role": "system", "content": "You are an expert Korean to English translator..."},
-    {"role": "user", "content": "Translate the following...\n\n# 프로젝트 소개"},
+    {"role": "user", "content": "Translate the following...\n\n# Project Introduction"},
     {"role": "assistant", "content": "# Project Introduction"}
   ]
 }
 ```
 
-#### 데이터 생성 방법
+#### Data Generation Methods
 
-4가지 방법으로 학습 데이터를 생성할 수 있습니다:
+You can generate training data using multiple methods:
 
-##### 방법 1: 템플릿 기반 생성 (추천 - API 불필요)
+##### Method 1: Template-based Generation (Recommended - No API required)
 
 ```bash
 python scripts/generate_synthetic.py --method template --num-samples 1000
 ```
 
-- **장점**: 무료, 빠름, API 키 불필요
-- **출력**: `data/synthetic/template_pairs.jsonl`
-- 사전 정의된 마크다운 템플릿으로 다양한 한영 번역 쌍 생성
+- **Pros**: Free, fast, no API key required
+- **Output**: `data/synthetic/template_pairs.jsonl`
+- Generates diverse Korean-English translation pairs using predefined markdown templates
 
-##### 방법 2: OpenAI API 기반 생성
+##### Method 2: OpenAI API-based Generation
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 
-# 순차 처리 (기본, 느림)
+# Sequential processing (default, slow)
 python scripts/generate_synthetic.py --method openai --num-samples 50 --model "gpt-4o"
 
-# 🚀 병렬 처리 (빠름! - 권장)
+# Parallel processing (fast! - recommended)
 python scripts/generate_synthetic.py --method openai --num-samples 1000 --parallel --max-concurrent 50
 
-# 💰 Batch API (50% 비용 절감!)
+# Batch API (50% cost savings!)
 python scripts/generate_synthetic.py --method openai --num-samples 1000 --batch --wait
 ```
 
-- 고품질 번역 쌍 생성
-- 다양한 주제와 스타일 지원
+- High-quality translation pair generation
+- Supports various topics and styles
 
-##### 방법 3: Anthropic API 기반 생성
+##### Method 3: Anthropic API-based Generation
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 순차 처리
+# Sequential processing
 python scripts/generate_synthetic.py --method anthropic --num-samples 50 --model "claude-sonnet-4-20250514"
 
-# 🚀 병렬 처리
+# Parallel processing
 python scripts/generate_synthetic.py --method anthropic --num-samples 1000 --parallel --max-concurrent 50
 ```
 
-##### 방법 4: Ollama 기반 생성 (로컬 LLM - 무료!)
+##### Method 4: Ollama-based Generation (Local LLM - Free!)
 
 ```bash
-# Ollama 설치 및 모델 다운로드
+# Install Ollama and download model
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.1:8b
-ollama serve  # 서버 시작 (별도 터미널)
+ollama serve  # Start server (separate terminal)
 
-# 순차 처리
+# Sequential processing
 python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100
 
-# 🚀 병렬 처리 (GPU 메모리에 따라 동시 요청 수 조절)
+# Parallel processing (adjust concurrent requests based on GPU memory)
 python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100 --parallel --max-concurrent 4
 
-# 커스텀 서버 URL
+# Custom server URL
 python scripts/generate_synthetic.py --method ollama --base-url http://192.168.1.100:11434 --model llama3.1:8b --num-samples 100
 ```
 
-- **장점**: 무료, 개인정보 보호, 인터넷 불필요
-- **단점**: GPU 필요, API보다 느림
-- **권장 모델**: `llama3.1:8b`, `qwen2.5:7b`, `gemma2:9b`
+- **Pros**: Free, privacy-friendly, no internet required
+- **Cons**: Requires GPU, slower than API
+- **Recommended models**: `llama3.1:8b`, `qwen2.5:7b`, `gemma2:9b`
 
-##### 방법 5: vLLM 기반 생성 (고성능 로컬 LLM)
+##### Method 5: vLLM-based Generation (High-performance Local LLM)
 
 ```bash
-# vLLM 설치
+# Install vLLM
 pip install vllm
 
-# vLLM 서버 시작 (별도 터미널)
+# Start vLLM server (separate terminal)
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Llama-3.1-8B-Instruct \
     --port 8000
 
-# 순차 처리
+# Sequential processing
 python scripts/generate_synthetic.py --method vllm --num-samples 100
 
-# 🚀 병렬 처리 (높은 처리량)
+# Parallel processing (high throughput)
 python scripts/generate_synthetic.py --method vllm --num-samples 1000 --parallel --max-concurrent 10
 
-# 커스텀 서버 URL
+# Custom server URL
 python scripts/generate_synthetic.py --method vllm --base-url http://localhost:8000 --num-samples 100
 ```
 
-- **장점**: 높은 처리량, OpenAI 호환 API, 배치 처리 최적화
-- **단점**: 설정 복잡, 대용량 GPU 권장
-- **권장**: 대량 데이터 생성 시
+- **Pros**: High throughput, OpenAI-compatible API, batch processing optimized
+- **Cons**: Complex setup, large GPU recommended
+- **Recommended for**: Large-scale data generation
 
-##### 방법 6: 샘플 데이터 생성 (테스트용)
+##### Method 6: Sample Data Generation (Testing)
 
 ```bash
 python scripts/generate_synthetic.py --method sample --num-samples 20
 ```
 
-- 하드코딩된 샘플 사용 (데모/테스트 목적)
+- Uses hardcoded samples (demo/testing purposes)
 
-#### 고속 데이터 생성 (병렬 처리 & Batch API)
+#### High-speed Data Generation (Parallel Processing & Batch API)
 
-대량의 데이터를 빠르게 생성해야 할 때 두 가지 최적화 옵션을 사용할 수 있습니다:
+Two optimization options for fast large-scale data generation:
 
-##### 🚀 비동기 병렬 처리 (`--parallel`)
+##### Async Parallel Processing (`--parallel`)
 
-asyncio를 사용하여 여러 API 요청을 동시에 처리합니다.
+Uses asyncio to process multiple API requests concurrently.
 
 ```bash
-# 1000개 샘플을 병렬로 생성 (최대 50개 동시 요청)
+# Generate 1000 samples in parallel (max 50 concurrent requests)
 python scripts/generate_synthetic.py \
     --method openai \
     --num-samples 1000 \
@@ -186,36 +201,36 @@ python scripts/generate_synthetic.py \
     --max-concurrent 50
 ```
 
-- **속도**: 순차 처리 대비 10-20배 빠름
-- **비용**: 동일 (일반 API 요금)
-- **1000개 생성 시간**: ~15-30분
+- **Speed**: 10-20x faster than sequential
+- **Cost**: Same (regular API pricing)
+- **Time for 1000 samples**: ~15-30 minutes
 
-##### 💰 OpenAI Batch API (`--batch`)
+##### OpenAI Batch API (`--batch`)
 
-OpenAI의 Batch API를 사용하여 비용을 절감합니다.
+Uses OpenAI's Batch API for cost savings.
 
 ```bash
-# 배치 작업 제출 (즉시 반환)
+# Submit batch job (returns immediately)
 python scripts/generate_synthetic.py \
     --method openai \
     --num-samples 1000 \
     --batch
 
-# 배치 작업 제출 및 완료 대기
+# Submit and wait for completion
 python scripts/generate_synthetic.py \
     --method openai \
     --num-samples 1000 \
     --batch \
     --wait
 
-# 배치 상태 확인
+# Check batch status
 python scripts/generate_synthetic.py \
     --method openai \
     --batch \
     --batch-action status \
     --batch-id batch_xxxxx
 
-# 결과 다운로드
+# Download results
 python scripts/generate_synthetic.py \
     --method openai \
     --batch \
@@ -223,21 +238,21 @@ python scripts/generate_synthetic.py \
     --batch-id batch_xxxxx
 ```
 
-- **비용**: 50% 절감!
-- **속도**: 1-2시간 (24시간 내 완료 보장)
-- **제한**: OpenAI만 지원
+- **Cost**: 50% savings!
+- **Time**: 1-2 hours (guaranteed within 24 hours)
+- **Limitation**: OpenAI only
 
-##### 성능 비교 (1000개 샘플 기준)
+##### Performance Comparison (1000 samples)
 
-| 방식 | 시간 | 비용 | 권장 상황 |
-|------|------|------|-----------|
-| 순차 처리 | ~7시간 | 100% | 소량 데이터 |
-| **병렬 처리** | ~15-30분 | 100% | **빠른 결과 필요** |
-| **Batch API** | ~1-2시간 | **50%** | **비용 절감 필요** |
+| Method | Time | Cost | Recommended For |
+|--------|------|------|-----------------|
+| Sequential | ~7 hours | 100% | Small datasets |
+| **Parallel** | ~15-30 min | 100% | **Fast results needed** |
+| **Batch API** | ~1-2 hours | **50%** | **Cost savings needed** |
 
-#### 데이터 전처리
+#### Data Preprocessing
 
-생성된 데이터를 학습용으로 전처리하고 train/valid/test로 분할합니다:
+Preprocess generated data and split into train/valid/test:
 
 ```bash
 python scripts/prepare_data.py \
@@ -249,176 +264,120 @@ python scripts/prepare_data.py \
   --test-ratio 0.1
 ```
 
-**출력 파일**:
+**Output files**:
 - `data/processed/train.jsonl` (80%)
 - `data/processed/valid.jsonl` (10%)
 - `data/processed/test.jsonl` (10%)
 
-#### 전체 파이프라인 예시
+#### Complete Pipeline Example
 
 ```bash
-# 1단계: 합성 데이터 생성
+# Step 1: Generate synthetic data
 python scripts/generate_synthetic.py --method template --num-samples 1000
 
-# 2단계: 전처리 및 분할
+# Step 2: Preprocess and split
 python scripts/prepare_data.py \
   --input data/raw \
   --output data/processed \
   --include-synthetic
 
-# 3단계: 학습 시작
+# Step 3: Start training
 python scripts/train.py --config configs/training_config.yaml --qlora
 ```
 
-#### 데이터 생성 방법 비교
+#### Data Generation Method Comparison
 
-| 방법 | 속도 | 비용 | 품질 | API 필요 | GPU 필요 |
-|------|------|------|------|---------|---------|
-| 템플릿 기반 | 매우 빠름 | 무료 | 중간 | ❌ | ❌ |
-| OpenAI | 중간 | 유료 | 높음 | ✅ | ❌ |
-| Anthropic | 중간 | 유료 | 높음 | ✅ | ❌ |
-| **Ollama** | 느림 | **무료** | 높음 | ❌ | ✅ |
-| **vLLM** | 빠름 | **무료** | 높음 | ❌ | ✅ |
-| 샘플 데이터 | 매우 빠름 | 무료 | 낮음 | ❌ | ❌ |
+| Method | Speed | Cost | Quality | API Required | GPU Required |
+|--------|-------|------|---------|--------------|--------------|
+| Template | Very Fast | Free | Medium | No | No |
+| OpenAI | Medium | Paid | High | Yes | No |
+| Anthropic | Medium | Paid | High | Yes | No |
+| **Ollama** | Slow | **Free** | High | No | Yes |
+| **vLLM** | Fast | **Free** | High | No | Yes |
+| Sample | Very Fast | Free | Low | No | No |
 
-#### Local LLM 권장 모델
+#### Local LLM Recommended Models
 
-| 모델 | VRAM | 품질 | 속도 | 추천 상황 |
-|------|------|------|------|----------|
-| `llama3.1:8b` | 8GB | ⭐⭐⭐ | 빠름 | RTX 3080/4080 |
-| `llama3.1:70b` | 40GB+ | ⭐⭐⭐⭐⭐ | 느림 | A100/H100 |
-| `qwen2.5:7b` | 8GB | ⭐⭐⭐⭐ | 빠름 | 다국어 지원 |
-| `gemma2:9b` | 10GB | ⭐⭐⭐⭐ | 중간 | 균형잡힌 성능 |
+| Model | VRAM | Quality | Speed | Recommended For |
+|-------|------|---------|-------|-----------------|
+| `llama3.1:8b` | 8GB | 3/5 | Fast | RTX 3080/4080 |
+| `llama3.1:70b` | 40GB+ | 5/5 | Slow | A100/H100 |
+| `qwen2.5:7b` | 8GB | 4/5 | Fast | Multilingual |
+| `gemma2:9b` | 10GB | 4/5 | Medium | Balanced |
 
-#### 마크다운 요소 지원
-
-생성된 데이터는 다양한 마크다운 요소를 포함하여 번역 모델이 마크다운 구조를 잘 보존하도록 학습됩니다.
-
-##### 지원하는 마크다운 요소
-
-| 요소 | 문법 | 설명 |
-|------|------|------|
-| 헤더 | `# ## ###` | 문서 구조화 |
-| 코드 블록 | ` ```language ``` ` | 코드 예제 |
-| 인라인 코드 | `` `code` `` | 변수/함수명 |
-| 테이블 | `\| col \| col \|` | 데이터 정리 |
-| 링크 | `[text](url)` | 외부 참조 |
-| 이미지 | `![alt](url)` | 다이어그램 |
-| 리스트 | `- item` / `1. item` | 목록 |
-| 인용구 | `> quote` | 중요 내용 강조 |
-| 굵은 글씨 | `**bold**` | 강조 |
-| 기울임 | `*italic*` | 부가 설명 |
-
-##### 스타일별 필수 마크다운 요소
-
-각 문서 스타일마다 필수로 포함해야 하는 마크다운 요소가 정의되어 있습니다:
-
-| 스타일 | 필수 요소 |
-|--------|-----------|
-| `readme` | 헤더, 코드 블록, 리스트, 링크, 굵은 글씨 |
-| `tutorial` | 헤더, 코드 블록, 인라인 코드, 리스트, 링크, 인용구 |
-| `api_doc` | 헤더, 코드 블록, 인라인 코드, 테이블, 리스트 |
-| `blog` | 헤더, 코드 블록, 링크, 굵은 글씨, 기울임, 인용구 |
-| `reference` | 헤더, 테이블, 인라인 코드, 리스트, 링크 |
-| `troubleshooting` | 헤더, 코드 블록, 리스트, 인용구, 굵은 글씨 |
-
-##### 생성 데이터 검증
-
-OpenAI/Anthropic API로 생성된 데이터는 자동으로 검증되어 필수 마크다운 요소가 포함되었는지 확인합니다:
-
-```python
-# 검증 결과 예시
-{
-    "is_valid": True,
-    "korean_counts": {"headers": 5, "code_blocks": 2, "tables": 1, ...},
-    "english_counts": {"headers": 5, "code_blocks": 2, "tables": 1, ...},
-    "required_elements": ["headers", "code_blocks", "tables"],
-    "missing_korean": [],
-    "missing_english": []
-}
-```
-
-마크다운 보존율 검증 스크립트:
+### 2. Training
 
 ```bash
-python scripts/validate_markdown_preservation.py \
-    --input data/processed/train.jsonl \
-    --min-overall-rate 0.98
-```
-
-### 2. 학습
-
-```bash
-# QLoRA로 학습 (12-16GB VRAM)
+# Train with QLoRA (12-16GB VRAM)
 python scripts/train.py --config configs/training_config.yaml --qlora
 
-# LoRA로 학습 (24GB+ VRAM)
+# Train with LoRA (24GB+ VRAM)
 python scripts/train.py --config configs/training_config.yaml
 ```
 
-### 3. 평가
+### 3. Evaluation
 
 ```bash
 python scripts/evaluate.py --adapter-path outputs/checkpoints/final/adapter
 ```
 
-### 4. 추론
+### 4. Inference
 
 ```bash
-# 단일 파일 번역
+# Single file translation
 python scripts/inference.py --input docs/README.ko.md --output docs/README.en.md
 
-# 대화형 모드
+# Interactive mode
 python scripts/inference.py --interactive
 
-# 디렉토리 일괄 번역
+# Batch directory translation
 python scripts/inference.py --input-dir docs/ko --output-dir docs/en
 ```
 
-### 5. Hugging Face Hub 업로드
+### 5. Upload to Hugging Face Hub
 
-학습된 모델을 Hugging Face Hub에 업로드하여 공유할 수 있습니다.
+Share your trained model on Hugging Face Hub.
 
-#### 인증 설정
+#### Authentication Setup
 
 ```bash
-# 방법 1: CLI 로그인 (권장)
+# Method 1: CLI login (recommended)
 huggingface-cli login
 
-# 방법 2: 환경 변수
+# Method 2: Environment variable
 export HF_TOKEN=hf_xxxxxxxxxxxxx
 ```
 
-#### 학습 완료 후 자동 업로드
+#### Auto-upload After Training
 
 ```bash
-# 학습 완료 시 자동으로 Hub에 업로드
+# Auto-upload to Hub after training
 python scripts/train.py --config configs/training_config.yaml --qlora \
     --push-to-hub \
-    --hub-repo-id your-username/exaone-markdown-translator
+    --hub-repo-id your-username/markdown-translator
 
-# 비공개 리포지토리로 업로드
+# Upload as private repository
 python scripts/train.py --config configs/training_config.yaml --qlora \
     --push-to-hub \
     --hub-repo-id your-org/internal-model \
     --hub-private
 ```
 
-#### 수동 업로드
+#### Manual Upload
 
 ```bash
-# 어댑터만 업로드 (용량 작음, 추천)
+# Upload adapter only (smaller size, recommended)
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
-    --repo-id your-username/exaone-markdown-translator
+    --repo-id your-username/markdown-translator
 
-# 병합된 전체 모델 업로드 (단독 사용 가능)
+# Upload merged full model (standalone usage)
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
-    --repo-id your-username/exaone-markdown-translator-merged \
+    --repo-id your-username/markdown-translator-merged \
     --merge
 
-# 비공개 + 커스텀 설정
+# Private + custom settings
 python scripts/upload_to_hub.py \
     --adapter-path outputs/checkpoints/final/adapter \
     --repo-id your-username/my-translator \
@@ -426,34 +385,35 @@ python scripts/upload_to_hub.py \
     --private
 ```
 
-#### Hub에서 모델 사용하기
+#### Using Model from Hub
 
 ```python
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-# 기본 모델 로드
+# Load base model (change according to your model)
+# Examples: EXAONE, Llama, Qwen, etc.
 base_model = AutoModelForCausalLM.from_pretrained(
-    "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+    "your-base-model-id",  # e.g., "meta-llama/Llama-3.1-8B-Instruct"
     torch_dtype=torch.bfloat16,
     device_map="auto",
     trust_remote_code=True
 )
 
-# LoRA 어댑터 로드
+# Load LoRA adapter
 model = PeftModel.from_pretrained(
     base_model,
-    "your-username/exaone-markdown-translator"
+    "your-username/markdown-translator"
 )
 tokenizer = AutoTokenizer.from_pretrained(
-    "your-username/exaone-markdown-translator"
+    "your-username/markdown-translator"
 )
 ```
 
 ## Configuration
 
-### QLoRA 설정 (`configs/qlora_config.yaml`)
+### QLoRA Settings (`configs/qlora_config.yaml`)
 
 ```yaml
 quantization:
@@ -467,7 +427,7 @@ lora:
   target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 ```
 
-### 학습 설정 (`configs/training_config.yaml`)
+### Training Settings (`configs/training_config.yaml`)
 
 ```yaml
 training:
@@ -481,10 +441,10 @@ training:
 
 | Metric | Description |
 |--------|-------------|
-| BLEU | N-gram 기반 번역 정확도 |
-| chrF | 문자 수준 F-score |
-| COMET | 신경망 기반 품질 평가 |
-| Preservation Rate | 마크다운 요소 보존율 |
+| BLEU | N-gram based translation accuracy |
+| chrF | Character-level F-score |
+| COMET | Neural network based quality evaluation |
+| Preservation Rate | Markdown element preservation rate |
 
 ## Hardware Requirements
 
@@ -501,6 +461,9 @@ MIT License
 ## References
 
 - [EXAONE 3.5](https://github.com/LG-AI-EXAONE/EXAONE-3.5)
+- [Llama 3.1](https://github.com/meta-llama/llama3)
+- [Qwen 2.5](https://github.com/QwenLM/Qwen2.5)
+- [Gemma 2](https://github.com/google-deepmind/gemma)
 - [Hugging Face PEFT](https://huggingface.co/docs/peft)
 - [SacreBLEU](https://github.com/mjpost/sacrebleu)
 - [COMET](https://github.com/Unbabel/COMET)
