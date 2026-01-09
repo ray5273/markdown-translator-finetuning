@@ -26,6 +26,7 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
 
 # Local LLM providers
+LOCAL_LLM_AVAILABLE = False
 try:
     from .local_llm_provider import (
         OllamaProvider as _OllamaProvider,
@@ -35,7 +36,22 @@ try:
     )
     LOCAL_LLM_AVAILABLE = True
 except ImportError:
-    LOCAL_LLM_AVAILABLE = False
+    try:
+        # Fallback for dynamic module loading (when run via load_module)
+        from pathlib import Path
+        import importlib.util
+        _provider_path = Path(__file__).parent / "local_llm_provider.py"
+        if _provider_path.exists():
+            _spec = importlib.util.spec_from_file_location("local_llm_provider", _provider_path)
+            _local_llm_module = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_local_llm_module)
+            _OllamaProvider = _local_llm_module.OllamaProvider
+            _VLLMProvider = _local_llm_module.VLLMProvider
+            check_ollama_available = _local_llm_module.check_ollama_available
+            check_vllm_available = _local_llm_module.check_vllm_available
+            LOCAL_LLM_AVAILABLE = True
+    except Exception:
+        pass
 
 
 @dataclass
