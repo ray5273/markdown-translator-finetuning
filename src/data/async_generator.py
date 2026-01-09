@@ -38,6 +38,18 @@ try:
 except ImportError:
     ANTHROPIC_ASYNC_AVAILABLE = False
 
+# Local LLM providers
+try:
+    from .local_llm_provider import (
+        AsyncOllamaProvider,
+        AsyncVLLMProvider,
+        check_ollama_available,
+        check_vllm_available,
+    )
+    LOCAL_LLM_ASYNC_AVAILABLE = True
+except ImportError:
+    LOCAL_LLM_ASYNC_AVAILABLE = False
+
 
 @dataclass
 class GeneratedPair:
@@ -253,22 +265,28 @@ class AsyncSyntheticDataGenerator:
         model: str = None,
         max_concurrent: int = 50,
         max_retries: int = 3,
-        retry_delay: float = 1.0
+        retry_delay: float = 1.0,
+        base_url: str = None,
+        **kwargs
     ):
         """
         Args:
-            provider: LLM 프로바이더 ("openai" 또는 "anthropic")
-            api_key: API 키
+            provider: LLM 프로바이더 ("openai", "anthropic", "ollama", "vllm")
+            api_key: API 키 (OpenAI, Anthropic용)
             model: 사용할 모델
             max_concurrent: 최대 동시 요청 수
             max_retries: 실패 시 재시도 횟수
             retry_delay: 재시도 기본 대기 시간 (초)
+            base_url: 서버 URL (Ollama, vLLM용)
+            **kwargs: 추가 설정 (timeout, max_tokens 등)
         """
         self.provider_name = provider
         self.api_key = api_key
         self.max_concurrent = max_concurrent
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.base_url = base_url
+        self.extra_kwargs = kwargs
 
         if provider == "openai":
             self.model_name = model or "gpt-4o"
@@ -276,8 +294,24 @@ class AsyncSyntheticDataGenerator:
         elif provider == "anthropic":
             self.model_name = model or "claude-sonnet-4-20250514"
             self._provider_class = AsyncAnthropicProvider
+        elif provider == "ollama":
+            if not LOCAL_LLM_ASYNC_AVAILABLE:
+                raise ImportError(
+                    "Local LLM provider not available. "
+                    "Make sure httpx package is installed: pip install httpx"
+                )
+            self.model_name = model or "llama3.1:8b"
+            self._provider_class = AsyncOllamaProvider
+        elif provider == "vllm":
+            if not LOCAL_LLM_ASYNC_AVAILABLE:
+                raise ImportError(
+                    "Local LLM provider not available. "
+                    "Make sure openai package is installed: pip install openai"
+                )
+            self.model_name = model  # vLLM은 서버에서 모델 감지 가능
+            self._provider_class = AsyncVLLMProvider
         else:
-            raise ValueError(f"Unknown provider: {provider}")
+            raise ValueError(f"Unknown provider: {provider}. Supported: openai, anthropic, ollama, vllm")
 
         self._provider: Optional[AsyncLLMProvider] = None
         self._semaphore: Optional[asyncio.Semaphore] = None
@@ -286,12 +320,36 @@ class AsyncSyntheticDataGenerator:
     async def _get_provider(self) -> AsyncLLMProvider:
         """프로바이더 인스턴스 반환 (lazy initialization)"""
         if self._provider is None:
-            self._provider = self._provider_class(
-                api_key=self.api_key,
-                model=self.model_name,
-                max_retries=self.max_retries,
-                retry_delay=self.retry_delay
-            )
+            if self.provider_name in ("openai", "anthropic"):
+                # API 기반 프로바이더
+                self._provider = self._provider_class(
+                    api_key=self.api_key,
+                    model=self.model_name,
+                    max_retries=self.max_retries,
+                    retry_delay=self.retry_delay
+                )
+            elif self.provider_name == "ollama":
+                # Ollama 프로바이더
+                self._provider = self._provider_class(
+                    base_url=self.base_url or "http://localhost:11434",
+                    model=self.model_name,
+                    temperature=self.extra_kwargs.get("temperature", 0.7),
+                    max_tokens=self.extra_kwargs.get("max_tokens", 4096),
+                    timeout=self.extra_kwargs.get("timeout", 120.0),
+                    max_retries=self.max_retries,
+                    retry_delay=self.retry_delay
+                )
+            elif self.provider_name == "vllm":
+                # vLLM 프로바이더
+                self._provider = self._provider_class(
+                    base_url=self.base_url or "http://localhost:8000",
+                    model=self.model_name,
+                    temperature=self.extra_kwargs.get("temperature", 0.7),
+                    max_tokens=self.extra_kwargs.get("max_tokens", 4096),
+                    api_key=self.extra_kwargs.get("api_key", "EMPTY"),
+                    max_retries=self.max_retries,
+                    retry_delay=self.retry_delay
+                )
         return self._provider
 
     def _get_required_elements_prompt(self, style: str) -> str:
@@ -498,7 +556,9 @@ async def main_async(
     output_path: str = None,
     api_key: str = None,
     model: str = None,
-    max_concurrent: int = 50
+    max_concurrent: int = 50,
+    base_url: str = None,
+    **kwargs
 ):
     """비동기 메인 함수"""
     output_path = output_path or f"data/synthetic/{provider}_async_pairs.jsonl"
@@ -507,7 +567,9 @@ async def main_async(
         provider=provider,
         api_key=api_key,
         model=model,
-        max_concurrent=max_concurrent
+        max_concurrent=max_concurrent,
+        base_url=base_url,
+        **kwargs
     )
 
     try:
@@ -526,7 +588,9 @@ def run_async_generation(
     output_path: str = None,
     api_key: str = None,
     model: str = None,
-    max_concurrent: int = 50
+    max_concurrent: int = 50,
+    base_url: str = None,
+    **kwargs
 ):
     """동기 래퍼 함수 (CLI에서 사용)"""
     return asyncio.run(main_async(
@@ -535,7 +599,9 @@ def run_async_generation(
         output_path=output_path,
         api_key=api_key,
         model=model,
-        max_concurrent=max_concurrent
+        max_concurrent=max_concurrent,
+        base_url=base_url,
+        **kwargs
     ))
 
 

@@ -1,0 +1,78 @@
+# Local LLM Configuration for Synthetic Data Generation
+#
+# This config file provides settings for generating synthetic data
+# using local LLM servers (Ollama or vLLM).
+
+# =============================================================================
+# Ollama Configuration
+# =============================================================================
+# Ollama is the easiest way to run local LLMs.
+#
+# Installation:
+#   curl -fsSL https://ollama.com/install.sh | sh
+#   ollama pull llama3.1:8b
+#   ollama serve
+#
+ollama:
+  base_url: "http://localhost:11434"
+  model: "llama3.1:8b"
+  temperature: 0.7
+  max_tokens: 4096
+  timeout: 120.0  # seconds
+
+  # Recommended models for Korean-English translation:
+  # - llama3.1:8b (8GB VRAM, good quality)
+  # - llama3.1:70b (40GB+ VRAM, best quality)
+  # - qwen2.5:7b (8GB VRAM, good multilingual)
+  # - gemma2:9b (10GB VRAM, balanced)
+
+# =============================================================================
+# vLLM Configuration
+# =============================================================================
+# vLLM provides high-throughput inference with OpenAI-compatible API.
+#
+# Installation:
+#   pip install vllm
+#
+# Start server:
+#   python -m vllm.entrypoints.openai.api_server \
+#       --model meta-llama/Llama-3.1-8B-Instruct \
+#       --port 8000 \
+#       --tensor-parallel-size 1
+#
+vllm:
+  base_url: "http://localhost:8000"
+  model: null  # Auto-detected from server
+  temperature: 0.7
+  max_tokens: 4096
+  api_key: "EMPTY"  # vLLM doesn't require API key by default
+
+  # High-throughput settings:
+  # - Use --max-model-len to limit context
+  # - Use --tensor-parallel-size for multi-GPU
+  # - Use --gpu-memory-utilization 0.9 for more memory
+
+# =============================================================================
+# Generation Settings
+# =============================================================================
+generation:
+  # Number of samples to generate
+  num_samples: 100
+
+  # Parallel processing settings
+  parallel: true
+  max_concurrent: 4  # Reduce for local LLM (GPU memory constraint)
+
+  # Output settings
+  output_dir: "data/synthetic"
+  output_format: "jsonl"
+
+# =============================================================================
+# Recommended Hardware
+# =============================================================================
+# | Model Size | VRAM Required | Recommended GPU |
+# |------------|---------------|-----------------|
+# | 7B-8B      | 8-10GB        | RTX 3080/4080   |
+# | 13B        | 16GB          | RTX 4090        |
+# | 70B        | 40GB+         | A100 40GB       |
+# | 70B (Q4)   | 35GB          | 2x RTX 4090     |

@@ -19,13 +19,24 @@ Usage:
     # Anthropic API 사용
     python scripts/generate_synthetic.py --method anthropic --num-samples 50
 
+    # Ollama 사용 (로컬 LLM - 무료!)
+    python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100
+
+    # Ollama 병렬 처리
+    python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100 --parallel --max-concurrent 4
+
+    # vLLM 사용 (고성능 로컬 LLM)
+    python scripts/generate_synthetic.py --method vllm --base-url http://localhost:8000 --num-samples 100
+
     # 샘플 데이터 생성 (데모용)
     python scripts/generate_synthetic.py --method sample --num-samples 20
 
 Performance Comparison (1000 samples):
-    - Sequential:  ~7 hours
-    - Parallel:    ~15-30 minutes
+    - Sequential:  ~7 hours (API)
+    - Parallel:    ~15-30 minutes (API)
     - Batch API:   ~1-2 hours (50% cost savings)
+    - Ollama:      Depends on hardware (free!)
+    - vLLM:        High throughput (free!)
 """
 
 import os
@@ -80,7 +91,7 @@ Examples:
     parser.add_argument(
         "--method",
         type=str,
-        choices=["template", "openai", "anthropic", "sample"],
+        choices=["template", "openai", "anthropic", "ollama", "vllm", "sample"],
         default="template",
         help="Generation method (default: template)"
     )
@@ -106,7 +117,7 @@ Examples:
         "--model",
         type=str,
         default=None,
-        help="Model to use (e.g., gpt-4o, claude-sonnet-4-20250514)"
+        help="Model to use (e.g., gpt-4o, claude-sonnet-4-20250514, llama3.1:8b)"
     )
     parser.add_argument(
         "--delay",
@@ -119,6 +130,27 @@ Examples:
         type=int,
         default=42,
         help="Random seed (default: 42)"
+    )
+
+    # Local LLM 옵션
+    local_group = parser.add_argument_group('Local LLM Options (Ollama/vLLM)')
+    local_group.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help="Local LLM server URL (default: http://localhost:11434 for Ollama, http://localhost:8000 for vLLM)"
+    )
+    local_group.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Request timeout in seconds for local LLM (default: 120.0)"
+    )
+    local_group.add_argument(
+        "--max-tokens",
+        type=int,
+        default=4096,
+        help="Maximum tokens to generate (default: 4096)"
     )
 
     # 병렬 처리 옵션
@@ -386,26 +418,40 @@ def run_parallel_generation(args):
         )
     except Exception as e:
         print(f"Error loading async generator: {e}")
-        print("Make sure 'openai' package is installed: pip install openai")
+        print("Make sure required packages are installed: pip install openai httpx")
         sys.exit(1)
 
     output_path = args.output or f"data/synthetic/{args.method}_async_pairs.jsonl"
 
-    api_key = args.api_key or os.getenv(
-        "OPENAI_API_KEY" if args.method == "openai" else "ANTHROPIC_API_KEY"
-    )
-    if not api_key:
-        print(f"Error: API key required. Set {'OPENAI_API_KEY' if args.method == 'openai' else 'ANTHROPIC_API_KEY'} or use --api-key")
-        sys.exit(1)
+    # API 기반 프로바이더
+    if args.method in ("openai", "anthropic"):
+        api_key = args.api_key or os.getenv(
+            "OPENAI_API_KEY" if args.method == "openai" else "ANTHROPIC_API_KEY"
+        )
+        if not api_key:
+            print(f"Error: API key required. Set {'OPENAI_API_KEY' if args.method == 'openai' else 'ANTHROPIC_API_KEY'} or use --api-key")
+            sys.exit(1)
 
-    async_generator.run_async_generation(
-        provider=args.method,
-        num_samples=args.num_samples,
-        output_path=output_path,
-        api_key=api_key,
-        model=args.model,
-        max_concurrent=args.max_concurrent
-    )
+        async_generator.run_async_generation(
+            provider=args.method,
+            num_samples=args.num_samples,
+            output_path=output_path,
+            api_key=api_key,
+            model=args.model,
+            max_concurrent=args.max_concurrent
+        )
+    # Local LLM 프로바이더
+    elif args.method in ("ollama", "vllm"):
+        async_generator.run_async_generation(
+            provider=args.method,
+            num_samples=args.num_samples,
+            output_path=output_path,
+            model=args.model,
+            max_concurrent=args.max_concurrent,
+            base_url=args.base_url,
+            timeout=args.timeout,
+            max_tokens=args.max_tokens
+        )
 
     return output_path
 
@@ -507,6 +553,23 @@ def run_sequential_generation(args):
             model=args.model
         )
 
+    elif args.method == "ollama":
+        generator = SyntheticDataGenerator(
+            provider="ollama",
+            model=args.model,
+            base_url=args.base_url,
+            timeout=args.timeout,
+            max_tokens=args.max_tokens
+        )
+
+    elif args.method == "vllm":
+        generator = SyntheticDataGenerator(
+            provider="vllm",
+            model=args.model,
+            base_url=args.base_url,
+            max_tokens=args.max_tokens
+        )
+
     generator.generate_dataset(
         num_samples=args.num_samples,
         output_path=output_path,
@@ -539,6 +602,9 @@ def main():
         print(f"  Mode: Batch API (50% cost savings)")
     else:
         print(f"  Mode: Sequential")
+    if args.method in ("ollama", "vllm"):
+        print(f"  Model: {args.model or 'default'}")
+        print(f"  Server: {args.base_url or 'default'}")
     print(f"  Output: {args.output}")
     print(f"{'='*50}\n")
 
@@ -567,6 +633,15 @@ def main():
             output_path = run_parallel_generation(args)
         else:
             # 순차 처리 (기존 방식)
+            output_path = run_sequential_generation(args)
+
+    elif args.method in ["ollama", "vllm"]:
+        # Local LLM 사용
+        if args.parallel:
+            # 비동기 병렬 처리
+            output_path = run_parallel_generation(args)
+        else:
+            # 순차 처리
             output_path = run_sequential_generation(args)
 
     if output_path:

@@ -114,7 +114,54 @@ python scripts/generate_synthetic.py --method anthropic --num-samples 50 --model
 python scripts/generate_synthetic.py --method anthropic --num-samples 1000 --parallel --max-concurrent 50
 ```
 
-##### 방법 4: 샘플 데이터 생성 (테스트용)
+##### 방법 4: Ollama 기반 생성 (로컬 LLM - 무료!)
+
+```bash
+# Ollama 설치 및 모델 다운로드
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.1:8b
+ollama serve  # 서버 시작 (별도 터미널)
+
+# 순차 처리
+python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100
+
+# 🚀 병렬 처리 (GPU 메모리에 따라 동시 요청 수 조절)
+python scripts/generate_synthetic.py --method ollama --model llama3.1:8b --num-samples 100 --parallel --max-concurrent 4
+
+# 커스텀 서버 URL
+python scripts/generate_synthetic.py --method ollama --base-url http://192.168.1.100:11434 --model llama3.1:8b --num-samples 100
+```
+
+- **장점**: 무료, 개인정보 보호, 인터넷 불필요
+- **단점**: GPU 필요, API보다 느림
+- **권장 모델**: `llama3.1:8b`, `qwen2.5:7b`, `gemma2:9b`
+
+##### 방법 5: vLLM 기반 생성 (고성능 로컬 LLM)
+
+```bash
+# vLLM 설치
+pip install vllm
+
+# vLLM 서버 시작 (별도 터미널)
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 8000
+
+# 순차 처리
+python scripts/generate_synthetic.py --method vllm --num-samples 100
+
+# 🚀 병렬 처리 (높은 처리량)
+python scripts/generate_synthetic.py --method vllm --num-samples 1000 --parallel --max-concurrent 10
+
+# 커스텀 서버 URL
+python scripts/generate_synthetic.py --method vllm --base-url http://localhost:8000 --num-samples 100
+```
+
+- **장점**: 높은 처리량, OpenAI 호환 API, 배치 처리 최적화
+- **단점**: 설정 복잡, 대용량 GPU 권장
+- **권장**: 대량 데이터 생성 시
+
+##### 방법 6: 샘플 데이터 생성 (테스트용)
 
 ```bash
 python scripts/generate_synthetic.py --method sample --num-samples 20
@@ -225,12 +272,23 @@ python scripts/train.py --config configs/training_config.yaml --qlora
 
 #### 데이터 생성 방법 비교
 
-| 방법 | 속도 | 비용 | 품질 | API 필요 |
-|------|------|------|------|---------|
-| 템플릿 기반 | 매우 빠름 | 무료 | 중간 | ❌ |
-| OpenAI | 느림 | 유료 | 높음 | ✅ |
-| Anthropic | 느림 | 유료 | 높음 | ✅ |
-| 샘플 데이터 | 매우 빠름 | 무료 | 낮음 | ❌ |
+| 방법 | 속도 | 비용 | 품질 | API 필요 | GPU 필요 |
+|------|------|------|------|---------|---------|
+| 템플릿 기반 | 매우 빠름 | 무료 | 중간 | ❌ | ❌ |
+| OpenAI | 중간 | 유료 | 높음 | ✅ | ❌ |
+| Anthropic | 중간 | 유료 | 높음 | ✅ | ❌ |
+| **Ollama** | 느림 | **무료** | 높음 | ❌ | ✅ |
+| **vLLM** | 빠름 | **무료** | 높음 | ❌ | ✅ |
+| 샘플 데이터 | 매우 빠름 | 무료 | 낮음 | ❌ | ❌ |
+
+#### Local LLM 권장 모델
+
+| 모델 | VRAM | 품질 | 속도 | 추천 상황 |
+|------|------|------|------|----------|
+| `llama3.1:8b` | 8GB | ⭐⭐⭐ | 빠름 | RTX 3080/4080 |
+| `llama3.1:70b` | 40GB+ | ⭐⭐⭐⭐⭐ | 느림 | A100/H100 |
+| `qwen2.5:7b` | 8GB | ⭐⭐⭐⭐ | 빠름 | 다국어 지원 |
+| `gemma2:9b` | 10GB | ⭐⭐⭐⭐ | 중간 | 균형잡힌 성능 |
 
 #### 마크다운 요소 지원
 
