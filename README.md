@@ -153,6 +153,62 @@ python scripts/train.py --config configs/training_config.yaml --qlora
 | Anthropic | 느림 | 유료 | 높음 | ✅ |
 | 샘플 데이터 | 매우 빠름 | 무료 | 낮음 | ❌ |
 
+#### 마크다운 요소 지원
+
+생성된 데이터는 다양한 마크다운 요소를 포함하여 번역 모델이 마크다운 구조를 잘 보존하도록 학습됩니다.
+
+##### 지원하는 마크다운 요소
+
+| 요소 | 문법 | 설명 |
+|------|------|------|
+| 헤더 | `# ## ###` | 문서 구조화 |
+| 코드 블록 | ` ```language ``` ` | 코드 예제 |
+| 인라인 코드 | `` `code` `` | 변수/함수명 |
+| 테이블 | `\| col \| col \|` | 데이터 정리 |
+| 링크 | `[text](url)` | 외부 참조 |
+| 이미지 | `![alt](url)` | 다이어그램 |
+| 리스트 | `- item` / `1. item` | 목록 |
+| 인용구 | `> quote` | 중요 내용 강조 |
+| 굵은 글씨 | `**bold**` | 강조 |
+| 기울임 | `*italic*` | 부가 설명 |
+
+##### 스타일별 필수 마크다운 요소
+
+각 문서 스타일마다 필수로 포함해야 하는 마크다운 요소가 정의되어 있습니다:
+
+| 스타일 | 필수 요소 |
+|--------|-----------|
+| `readme` | 헤더, 코드 블록, 리스트, 링크, 굵은 글씨 |
+| `tutorial` | 헤더, 코드 블록, 인라인 코드, 리스트, 링크, 인용구 |
+| `api_doc` | 헤더, 코드 블록, 인라인 코드, 테이블, 리스트 |
+| `blog` | 헤더, 코드 블록, 링크, 굵은 글씨, 기울임, 인용구 |
+| `reference` | 헤더, 테이블, 인라인 코드, 리스트, 링크 |
+| `troubleshooting` | 헤더, 코드 블록, 리스트, 인용구, 굵은 글씨 |
+
+##### 생성 데이터 검증
+
+OpenAI/Anthropic API로 생성된 데이터는 자동으로 검증되어 필수 마크다운 요소가 포함되었는지 확인합니다:
+
+```python
+# 검증 결과 예시
+{
+    "is_valid": True,
+    "korean_counts": {"headers": 5, "code_blocks": 2, "tables": 1, ...},
+    "english_counts": {"headers": 5, "code_blocks": 2, "tables": 1, ...},
+    "required_elements": ["headers", "code_blocks", "tables"],
+    "missing_korean": [],
+    "missing_english": []
+}
+```
+
+마크다운 보존율 검증 스크립트:
+
+```bash
+python scripts/validate_markdown_preservation.py \
+    --input data/processed/train.jsonl \
+    --min-overall-rate 0.98
+```
+
 ### 2. 학습
 
 ```bash
