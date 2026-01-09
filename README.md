@@ -88,7 +88,15 @@ python scripts/generate_synthetic.py --method template --num-samples 1000
 
 ```bash
 export OPENAI_API_KEY="sk-..."
+
+# 순차 처리 (기본, 느림)
 python scripts/generate_synthetic.py --method openai --num-samples 50 --model "gpt-4o"
+
+# 🚀 병렬 처리 (빠름! - 권장)
+python scripts/generate_synthetic.py --method openai --num-samples 1000 --parallel --max-concurrent 50
+
+# 💰 Batch API (50% 비용 절감!)
+python scripts/generate_synthetic.py --method openai --num-samples 1000 --batch --wait
 ```
 
 - 고품질 번역 쌍 생성
@@ -98,7 +106,12 @@ python scripts/generate_synthetic.py --method openai --num-samples 50 --model "g
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
+
+# 순차 처리
 python scripts/generate_synthetic.py --method anthropic --num-samples 50 --model "claude-sonnet-4-20250514"
+
+# 🚀 병렬 처리
+python scripts/generate_synthetic.py --method anthropic --num-samples 1000 --parallel --max-concurrent 50
 ```
 
 ##### 방법 4: 샘플 데이터 생성 (테스트용)
@@ -108,6 +121,72 @@ python scripts/generate_synthetic.py --method sample --num-samples 20
 ```
 
 - 하드코딩된 샘플 사용 (데모/테스트 목적)
+
+#### 고속 데이터 생성 (병렬 처리 & Batch API)
+
+대량의 데이터를 빠르게 생성해야 할 때 두 가지 최적화 옵션을 사용할 수 있습니다:
+
+##### 🚀 비동기 병렬 처리 (`--parallel`)
+
+asyncio를 사용하여 여러 API 요청을 동시에 처리합니다.
+
+```bash
+# 1000개 샘플을 병렬로 생성 (최대 50개 동시 요청)
+python scripts/generate_synthetic.py \
+    --method openai \
+    --num-samples 1000 \
+    --parallel \
+    --max-concurrent 50
+```
+
+- **속도**: 순차 처리 대비 10-20배 빠름
+- **비용**: 동일 (일반 API 요금)
+- **1000개 생성 시간**: ~15-30분
+
+##### 💰 OpenAI Batch API (`--batch`)
+
+OpenAI의 Batch API를 사용하여 비용을 절감합니다.
+
+```bash
+# 배치 작업 제출 (즉시 반환)
+python scripts/generate_synthetic.py \
+    --method openai \
+    --num-samples 1000 \
+    --batch
+
+# 배치 작업 제출 및 완료 대기
+python scripts/generate_synthetic.py \
+    --method openai \
+    --num-samples 1000 \
+    --batch \
+    --wait
+
+# 배치 상태 확인
+python scripts/generate_synthetic.py \
+    --method openai \
+    --batch \
+    --batch-action status \
+    --batch-id batch_xxxxx
+
+# 결과 다운로드
+python scripts/generate_synthetic.py \
+    --method openai \
+    --batch \
+    --batch-action download \
+    --batch-id batch_xxxxx
+```
+
+- **비용**: 50% 절감!
+- **속도**: 1-2시간 (24시간 내 완료 보장)
+- **제한**: OpenAI만 지원
+
+##### 성능 비교 (1000개 샘플 기준)
+
+| 방식 | 시간 | 비용 | 권장 상황 |
+|------|------|------|-----------|
+| 순차 처리 | ~7시간 | 100% | 소량 데이터 |
+| **병렬 처리** | ~15-30분 | 100% | **빠른 결과 필요** |
+| **Batch API** | ~1-2시간 | **50%** | **비용 절감 필요** |
 
 #### 데이터 전처리
 
