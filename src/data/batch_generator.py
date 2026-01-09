@@ -256,6 +256,68 @@ class BatchDataGenerator:
         print(f"Batch input file created: {output_path}")
         return str(output_path), requests_metadata
 
+    def validate_batch_file(self, file_path: str) -> Tuple[bool, List[str]]:
+        """배치 입력 파일 검증
+
+        Args:
+            file_path: 검증할 JSONL 파일 경로
+
+        Returns:
+            (is_valid, errors) 튜플
+        """
+        errors = []
+        line_count = 0
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for i, line in enumerate(f, 1):
+                    line_count = i
+                    if not line.strip():
+                        continue
+
+                    try:
+                        request = json.loads(line)
+
+                        # 필수 필드 확인
+                        if "custom_id" not in request:
+                            errors.append(f"Line {i}: Missing 'custom_id'")
+                        if "method" not in request:
+                            errors.append(f"Line {i}: Missing 'method'")
+                        if "url" not in request:
+                            errors.append(f"Line {i}: Missing 'url'")
+                        if "body" not in request:
+                            errors.append(f"Line {i}: Missing 'body'")
+
+                        # body 필드 확인
+                        if "body" in request:
+                            body = request["body"]
+                            if "model" not in body:
+                                errors.append(f"Line {i}: Missing 'model' in body")
+                            if "messages" not in body:
+                                errors.append(f"Line {i}: Missing 'messages' in body")
+
+                    except json.JSONDecodeError as e:
+                        errors.append(f"Line {i}: Invalid JSON - {e}")
+
+        except FileNotFoundError:
+            errors.append(f"File not found: {file_path}")
+
+        is_valid = len(errors) == 0
+
+        print(f"\n=== Batch File Validation ===")
+        print(f"File: {file_path}")
+        print(f"Total lines: {line_count}")
+        print(f"Valid: {'✅ Yes' if is_valid else '❌ No'}")
+
+        if errors:
+            print(f"\nErrors ({len(errors)}):")
+            for error in errors[:10]:  # 최대 10개만 표시
+                print(f"  - {error}")
+            if len(errors) > 10:
+                print(f"  ... and {len(errors) - 10} more errors")
+
+        return is_valid, errors
+
     def submit_batch(
         self,
         num_samples: int = None,
@@ -297,8 +359,14 @@ class BatchDataGenerator:
         else:
             requests_metadata = []
 
+        # 입력 파일 검증
+        print("\nValidating batch input file...")
+        is_valid, validation_errors = self.validate_batch_file(input_file_path)
+        if not is_valid:
+            raise ValueError(f"Batch input file validation failed. Fix errors and try again.")
+
         # 파일 업로드
-        print("Uploading batch file to OpenAI...")
+        print("\nUploading batch file to OpenAI...")
         with open(input_file_path, 'rb') as f:
             batch_file = self.client.files.create(
                 file=f,
@@ -337,11 +405,12 @@ class BatchDataGenerator:
 
         return batch.id
 
-    def check_status(self, batch_id: str) -> Dict:
+    def check_status(self, batch_id: str, verbose: bool = True) -> Dict:
         """Batch 상태 확인
 
         Args:
             batch_id: 배치 작업 ID
+            verbose: 상세 정보 출력 여부
 
         Returns:
             상태 정보 딕셔너리
@@ -357,7 +426,13 @@ class BatchDataGenerator:
             "total": batch.request_counts.total if batch.request_counts else 0,
             "output_file_id": batch.output_file_id,
             "error_file_id": batch.error_file_id,
+            "input_file_id": batch.input_file_id,
+            "errors": None,
         }
+
+        # 에러 정보 추출
+        if hasattr(batch, 'errors') and batch.errors:
+            status["errors"] = batch.errors
 
         # 로컬 캐시 업데이트
         if batch_id in self._batch_jobs:
@@ -372,12 +447,37 @@ class BatchDataGenerator:
             progress = (status["completed"] + status["failed"]) / status["total"] * 100
             status["progress"] = f"{progress:.1f}%"
 
-        print(f"\n=== Batch Status ===")
-        print(f"Batch ID: {batch_id}")
-        print(f"Status: {status['status']}")
-        print(f"Progress: {status.get('progress', 'N/A')}")
-        print(f"Completed: {status['completed']}/{status['total']}")
-        print(f"Failed: {status['failed']}")
+        if verbose:
+            print(f"\n=== Batch Status ===")
+            print(f"Batch ID: {batch_id}")
+            print(f"Status: {status['status']}")
+            print(f"Input File: {status['input_file_id']}")
+            print(f"Progress: {status.get('progress', 'N/A')}")
+            print(f"Completed: {status['completed']}/{status['total']}")
+            print(f"Failed: {status['failed']}")
+
+            # 에러 정보 출력
+            if status["errors"]:
+                print(f"\n⚠️  Errors:")
+                if hasattr(status["errors"], 'data'):
+                    for error in status["errors"].data:
+                        print(f"  - {error.code}: {error.message}")
+                else:
+                    print(f"  {status['errors']}")
+
+            # 상태별 안내 메시지
+            if status["status"] == "validating":
+                print(f"\n📋 Batch is being validated. This may take a few minutes...")
+            elif status["status"] == "in_progress":
+                print(f"\n🚀 Batch is processing...")
+            elif status["status"] == "completed":
+                print(f"\n✅ Batch completed! Use download_results() to get results.")
+            elif status["status"] == "failed":
+                print(f"\n❌ Batch failed. Check errors above.")
+            elif status["status"] == "expired":
+                print(f"\n⏰ Batch expired (24h limit reached).")
+            elif status["status"] == "cancelled":
+                print(f"\n🚫 Batch was cancelled.")
 
         return status
 
@@ -404,29 +504,50 @@ class BatchDataGenerator:
 
         start_time = time.time()
         last_completed = 0
+        last_status = None
 
         while True:
             elapsed = time.time() - start_time
             if elapsed > timeout:
                 raise TimeoutError(f"Batch job timed out after {timeout}s")
 
-            status = self.check_status(batch_id)
+            # 상태 변경 시에만 상세 출력
+            status = self.check_status(batch_id, verbose=False)
 
-            # 진행 상황 출력
-            if status["completed"] > last_completed:
+            # 상태 변경 시 출력
+            if status["status"] != last_status:
+                elapsed_min = elapsed / 60
+                print(f"[{elapsed_min:.1f}m] Status: {status['status']} | "
+                      f"Progress: {status['completed']}/{status['total']}")
+                last_status = status["status"]
+
+                # 에러가 있으면 출력
+                if status.get("errors"):
+                    print(f"  ⚠️  Errors detected:")
+                    if hasattr(status["errors"], 'data'):
+                        for error in status["errors"].data:
+                            print(f"    - {error.code}: {error.message}")
+
+            # 진행 상황 출력 (처리 중인 경우)
+            elif status["completed"] > last_completed:
                 rate = (status["completed"] - last_completed) / poll_interval
-                print(f"  Rate: ~{rate:.1f} requests/s")
+                elapsed_min = elapsed / 60
+                print(f"[{elapsed_min:.1f}m] Progress: {status['completed']}/{status['total']} "
+                      f"(~{rate:.1f} req/s)")
                 last_completed = status["completed"]
 
             if status["status"] == "completed":
-                print("\nBatch completed successfully!")
+                print(f"\n✅ Batch completed successfully!")
+                print(f"   Total time: {elapsed/60:.1f} minutes")
                 return status
             elif status["status"] == "failed":
-                raise RuntimeError(f"Batch job failed: {status}")
+                # 실패 시 상세 정보 출력
+                self.check_status(batch_id, verbose=True)
+                raise RuntimeError(f"Batch job failed. Check errors above.")
             elif status["status"] == "cancelled":
                 raise RuntimeError(f"Batch job was cancelled")
-            elif status["status"] in ["expired"]:
-                raise RuntimeError(f"Batch job expired")
+            elif status["status"] == "expired":
+                raise RuntimeError(f"Batch job expired (24h limit reached)")
 
             # 대기
             time.sleep(poll_interval)
