@@ -25,6 +25,18 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
+# Local LLM providers
+try:
+    from .local_llm_provider import (
+        OllamaProvider as _OllamaProvider,
+        VLLMProvider as _VLLMProvider,
+        check_ollama_available,
+        check_vllm_available,
+    )
+    LOCAL_LLM_AVAILABLE = True
+except ImportError:
+    LOCAL_LLM_AVAILABLE = False
+
 
 @dataclass
 class GeneratedPair:
@@ -103,6 +115,82 @@ class AnthropicProvider(LLMProvider):
         )
 
         return response.content[0].text
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama API 프로바이더
+
+    로컬에서 실행되는 Ollama 서버와 통신합니다.
+
+    설치:
+        curl -fsSL https://ollama.com/install.sh | sh
+        ollama pull llama3.1:8b
+        ollama serve
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        model: str = "llama3.1:8b",
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        timeout: float = 120.0
+    ):
+        if not LOCAL_LLM_AVAILABLE:
+            raise ImportError(
+                "Local LLM provider not available. "
+                "Make sure requests package is installed: pip install requests"
+            )
+
+        self._provider = _OllamaProvider(
+            base_url=base_url,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout
+        )
+        self.model = model
+
+    def generate(self, prompt: str, system_prompt: str = None) -> str:
+        return self._provider.generate(prompt, system_prompt)
+
+
+class VLLMProvider(LLMProvider):
+    """vLLM OpenAI 호환 API 프로바이더
+
+    vLLM 서버의 OpenAI 호환 API를 사용합니다.
+
+    vLLM 서버 시작:
+        python -m vllm.entrypoints.openai.api_server \\
+            --model meta-llama/Llama-3.1-8B-Instruct \\
+            --port 8000
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8000",
+        model: str = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        api_key: str = "EMPTY"
+    ):
+        if not LOCAL_LLM_AVAILABLE:
+            raise ImportError(
+                "Local LLM provider not available. "
+                "Make sure openai package is installed: pip install openai"
+            )
+
+        self._provider = _VLLMProvider(
+            base_url=base_url,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key
+        )
+        self.model = self._provider.model
+
+    def generate(self, prompt: str, system_prompt: str = None) -> str:
+        return self._provider.generate(prompt, system_prompt)
 
 
 class SyntheticDataGenerator:
@@ -216,32 +304,53 @@ class SyntheticDataGenerator:
         self,
         provider: Union[str, LLMProvider] = "openai",
         api_key: str = None,
-        model: str = None
+        model: str = None,
+        base_url: str = None,
+        **kwargs
     ):
         """
         Args:
-            provider: LLM 프로바이더 ("openai", "anthropic" 또는 LLMProvider 인스턴스)
-            api_key: API 키
+            provider: LLM 프로바이더 ("openai", "anthropic", "ollama", "vllm" 또는 LLMProvider 인스턴스)
+            api_key: API 키 (OpenAI, Anthropic용)
             model: 사용할 모델
+            base_url: 서버 URL (Ollama, vLLM용)
+            **kwargs: 추가 설정 (timeout, max_tokens 등)
         """
         if isinstance(provider, LLMProvider):
             self.provider = provider
+            self.model_name = getattr(provider, 'model', 'custom')
         elif provider == "openai":
             self.provider = OpenAIProvider(
                 api_key=api_key,
                 model=model or "gpt-4o"
             )
+            self.model_name = model or "gpt-4o"
         elif provider == "anthropic":
             self.provider = AnthropicProvider(
                 api_key=api_key,
                 model=model or "claude-sonnet-4-20250514"
             )
+            self.model_name = model or "claude-sonnet-4-20250514"
+        elif provider == "ollama":
+            self.provider = OllamaProvider(
+                base_url=base_url or "http://localhost:11434",
+                model=model or "llama3.1:8b",
+                temperature=kwargs.get("temperature", 0.7),
+                max_tokens=kwargs.get("max_tokens", 4096),
+                timeout=kwargs.get("timeout", 120.0)
+            )
+            self.model_name = model or "llama3.1:8b"
+        elif provider == "vllm":
+            self.provider = VLLMProvider(
+                base_url=base_url or "http://localhost:8000",
+                model=model,
+                temperature=kwargs.get("temperature", 0.7),
+                max_tokens=kwargs.get("max_tokens", 4096),
+                api_key=kwargs.get("api_key", "EMPTY")
+            )
+            self.model_name = self.provider.model
         else:
-            raise ValueError(f"Unknown provider: {provider}")
-
-        self.model_name = model or (
-            "gpt-4o" if provider == "openai" else "claude-sonnet-4-20250514"
-        )
+            raise ValueError(f"Unknown provider: {provider}. Supported: openai, anthropic, ollama, vllm")
 
     def _get_required_elements_prompt(self, style: str) -> str:
         """스타일별 필수 마크다운 요소 프롬프트 생성"""
